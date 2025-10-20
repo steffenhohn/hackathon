@@ -1,5 +1,20 @@
-FROM eclipse-temurin:17-jdk-alpine
-WORKDIR /app
-COPY target/personservice-0.0.1-SNAPSHOT.jar app.jar
+# ----------- Build stage ----------- #
+FROM maven:3.9.6-eclipse-temurin-21 AS build
+
+WORKDIR /app/backend
+
+COPY pom.xml .
+RUN mvn dependency:go-offline
+
+COPY src src
+RUN mvn package -Dmaven.test.skip=true
+
+# ----------- Runtime stage ----------- #
+FROM eclipse-temurin:21-jre-ubi9-minimal
+
+WORKDIR /app/backend
+COPY --from=build /app/backend/target/*.jar personservice.jar
+
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-jar", "personservice.jar"]
+

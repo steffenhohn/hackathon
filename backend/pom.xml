@@ -12,13 +12,14 @@
     <description>Spring Boot REST API for Person Management</description>
 
     <properties>
-        <java.version>25</java.version>
+        <java.version>21</java.version>
     </properties>
 
     <parent>
-        <groupId>ch.ipt.bag.hackathon</groupId>
-        <artifactId>parent</artifactId>
-        <version>1.0.0</version>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.5.6</version>
+        <relativePath/>
     </parent>
 
     <dependencies>

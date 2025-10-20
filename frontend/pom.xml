@@ -4,13 +4,13 @@
                              http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <parent>
-        <groupId>ch.ipt.bag.hackathon</groupId>
-        <artifactId>parent</artifactId>
-        <version>1.0.0</version>
-    </parent>
+    <groupId>ch.ipt.bag.hackathon</groupId>
+    <artifactId>personservice-ui</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
 
-    <artifactId>frontend</artifactId>
+    <name>personservice-ui</name>
+    <description>Angular Application</description>
+
 
     <build>
         <plugins>
