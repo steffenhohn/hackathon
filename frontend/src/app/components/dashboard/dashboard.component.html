@@ -1,0 +1,17 @@
+<h2>Dashboard</h2>
+<hr>
+<ul>
+  <li *ngFor="let x of pieChartData">
+    {{ x }}
+  </li>
+    <li *ngFor="let p of persons">
+        {{ p.name }} ({{ p.age }} years)
+    </li>
+    <div style="width: 400px; height: 400px;">
+        <canvas baseChart
+                [data]="pieChartData"
+                [type]="pieChartType"
+                [options]="pieChartOptions">
+        </canvas>
+    </div>
+</ul>

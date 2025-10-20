@@ -1,0 +1,11 @@
+<h2>Edit Persons</h2>
+<input [(ngModel)]="newPerson.name" placeholder="Name">
+<input [(ngModel)]="newPerson.age" type="number" placeholder="Age">
+<button (click)="add()">Add</button>
+
+<ul>
+  <li *ngFor="let p of persons">
+    {{ p.name }} ({{ p.age }} years)
+    <button (click)="remove(p.id!)">Remove</button>
+  </li>
+</ul>
