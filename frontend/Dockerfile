@@ -1,11 +1,29 @@
-# Stage 1: Build the Angular app
+# -------- Stage 1: Build the Angular app --------
 FROM node:18 AS build
 WORKDIR /app
-COPY . .
-RUN npm install && npm run build
 
-# Stage 2: Serve with nginx
+# Install dependencies
+COPY package*.json ./
+RUN npm install --legacy-peer-deps
+
+# Copy the rest of the app
+COPY . .
+
+# Build Angular app (outputs to /app/dist)
+RUN npm run build --configuration=production
+
+# -------- Stage 2: Serve with nginx --------
 FROM nginx:alpine
-COPY --from=build /app/dist /usr/share/nginx/html
+WORKDIR /usr/share/nginx/html
+
+# Remove default nginx site content
+RUN rm -rf ./*
+
+# ✅ Copy build result from previous stage
+COPY --from=build /app/dist/ /usr/share/nginx/html/
+
+# Optional: replace default nginx config
+# COPY nginx.conf /etc/nginx/conf.d/default.conf
+
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

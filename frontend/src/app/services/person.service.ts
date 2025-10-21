@@ -6,6 +6,7 @@ import { Person } from '../models/person.model';
 @Injectable({ providedIn: 'root' })
 export class PersonService {
   private apiUrl = 'http://localhost:8080/api/persons';
+  // private apiUrl = 'http://backend:8080/api/persons';
 
   constructor(private http: HttpClient) {}
 
@@ -14,6 +15,7 @@ export class PersonService {
   }
 
   add(person: Person): Observable<Person> {
+    console.log(this.apiUrl);
     return this.http.post<Person>(this.apiUrl, person);
   }
 
