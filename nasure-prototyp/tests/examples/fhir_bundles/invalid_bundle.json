@@ -1,0 +1,4 @@
+{
+  "resourceType": "Bundle",
+  "note": "Invalid bundle missing required fields like 'type', 'entry', etc."
+}

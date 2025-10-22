@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: lab_dp_db
+      POSTGRES_USER: lab_dp_user
+      POSTGRES_PASSWORD: lab_dp_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./migrations:/docker-entrypoint-initdb.d
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  minio:
+    image: minio/minio:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    command: server /data --console-address ":9001"
+
+  fhir-api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      REDIS_HOST: redis
+      MINIO_HOST: minio
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin123
+      MINIO_BUCKET: lab-raw-data
+    depends_on:
+      - redis
+      - minio
+    volumes:
+      - ./src:/app/src
+      - ./scripts:/app/scripts
+    command: uvicorn fhir_ingestion.entrypoints.fhir_api:app --host=0.0.0.0 --port=8000
+
+  tests:
+    build: .
+    environment:
+      REDIS_HOST: redis
+      MINIO_HOST: minio
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin123
+      MINIO_BUCKET: lab-raw-data
+      API_HOST: fhir-api
+    depends_on:
+      - fhir-api
+      - redis
+      - minio
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+      - ./scripts:/app/scripts
+    command: pytest tests/ -v
+    profiles:
+      - test

@@ -79,3 +79,69 @@ Desktop.ini
 
 .env
 .env.*
+
+# ========================================
+# Global Python ignores (only in subdir)
+# ========================================
+nasure-prototyp/__pycache__/
+nasure-prototyp/**/*.py[cod]
+nasure-prototyp/**/*.pyo
+nasure-prototyp/**/*.pyd
+nasure-prototyp/**/*.pyc
+nasure-prototyp/**/*.py.class
+nasure-prototyp/*.egg
+nasure-prototyp/*.egg-info/
+nasure-prototyp/dist/
+nasure-prototyp/build/
+nasure-prototyp/.eggs/
+nasure-prototyp/.cache/
+nasure-prototyp/pip-log.txt
+nasure-prototyp/pip-delete-this-directory.txt
+nasure-prototyp/venv/
+nasure-prototyp/env/
+nasure-prototyp/ENV/
+nasure-prototyp/.venv/
+nasure-prototyp/.python-version
+nasure-prototyp/.mypy_cache/
+nasure-prototyp/.dmypy.json
+nasure-prototyp/.pyre/
+nasure-prototyp/.pytest_cache/
+nasure-prototyp/coverage.*
+nasure-prototyp/htmlcov/
+nasure-prototyp/.tox/
+nasure-prototyp/.nox/
+nasure-prototyp/.ipynb_checkpoints
+
+# ========================================
+# Docker
+# ========================================
+*.log
+docker-compose.override.yml
+docker-compose.yml.local
+*.local.yml
+.dockerignore
+Dockerfile.*.bak
+
+# Docker environment and secrets
+.env
+.env.*
+secrets.env
+
+# Docker volumes (if local)
+volumes/
+**/volumes/
+
+# ========================================
+# IDEs and editors
+# ========================================
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# ========================================
+# Git
+# ========================================
+.git/
+.gitignore
+.gitattributes

@@ -1,0 +1,32 @@
+{
+  "resourceType": "Bundle",
+  "id": "minimal-test-bundle",
+  "type": "document",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "identifier": {
+    "system": "http://example.org/bundles",
+    "value": "minimal-test-bundle"
+  },
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Composition",
+        "id": "comp-001",
+        "status": "final",
+        "type": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "11502-2",
+              "display": "Laboratory report"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/patient-001"
+        },
+        "date": "2024-01-15"
+      }
+    }
+  ]
+}

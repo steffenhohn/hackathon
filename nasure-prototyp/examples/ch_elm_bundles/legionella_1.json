@@ -1,0 +1,375 @@
+{
+  "resourceType": "Bundle",
+  "id": "10Doc-Legionella",
+  "identifier": {
+    "system": "urn:ietf:rfc:3986",
+    "value": "urn:uuid:1991332d-6012-443f-9690-9291dtb2cb3b"
+  },
+  "type": "document",
+  "timestamp": "2023-09-20T07:35:00+02:00",
+  "entry": [
+    {
+      "fullUrl": "urn:uuid:305782db-c1e4-4b5e-90af-c808e498adea",
+      "resource": {
+        "resourceType": "Composition",
+        "id": "305782db-c1e4-4b5e-90af-c808e498adea",
+        "language": "de-CH",
+        "identifier": {
+          "system": "urn:ietf:rfc:3986",
+          "value": "urn:uuid:1991332d-6012-443f-9690-9291dtb2cb3b"
+        },
+        "status": "final",
+        "type": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "version": "http://snomed.info/sct/2011000195101",
+              "code": "4241000179101",
+              "display": "Laborbericht"
+            },
+            {
+              "system": "http://loinc.org",
+              "code": "11502-2",
+              "display": "Laboratory report"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "urn:uuid:bc3eaa0b-1ab3-4346-b288-8607ecf7031b"
+        },
+        "date": "2023-09-20T07:35:00+02:00",
+        "author": [
+          {
+            "reference": "urn:uuid:4ecbcc4d-6708-4b13-9dfd-b2c2a29fd548"
+          }
+        ],
+        "title": "Laborbericht vom 20.09.2023",
+        "section": [
+          {
+            "title": "Analyseergebnisse der mikrobiologischen Untersuchung",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://loinc.org",
+                  "code": "18725-2",
+                  "display": "Microbiology studies (set)"
+                }
+              ]
+            },
+            "entry": [
+              {
+                "reference": "urn:uuid:61141689-fa18-4b68-9fba-0a9bd5783cbc"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:bc3eaa0b-1ab3-4346-b288-8607ecf7031b",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "bc3eaa0b-1ab3-4346-b288-8607ecf7031b",
+        "identifier": [
+          {
+            "system": "urn:oid:2.16.756.5.32",
+            "value": "7561733446723"
+          }
+        ],
+        "name": [
+          {
+            "family": "Frimousse",
+            "given": [
+              "Herber"
+            ]
+          }
+        ],
+        "gender": "female",
+        "birthDate": "1985-10-17",
+        "address": [
+          {
+            "use": "home",
+            "line": [
+              "Bahnhofstrasse 27"
+            ],
+            "city": "Derendingen",
+            "state": "SO",
+            "postalCode": "4552",
+            "country": "CH",
+            "_country": {
+              "extension": [
+                {
+                  "url": "http://hl7.org/fhir/StructureDefinition/iso21090-SC-coding",
+                  "valueCoding": {
+                    "system": "urn:iso:std:iso:3166",
+                    "code": "CH"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:4ecbcc4d-6708-4b13-9dfd-b2c2a29fd548",
+      "resource": {
+        "resourceType": "Organization",
+        "id": "4ecbcc4d-6708-4b13-9dfd-b2c2a29fd548",
+        "identifier": [
+          {
+            "system": "urn:oid:2.51.1.3",
+            "value": "7601002331470"
+          }
+        ],
+        "name": "SanLab"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:61141689-fa18-4b68-9fba-0a9bd5783cbc",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "61141689-fa18-4b68-9fba-0a9bd5783cbc",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "laboratory",
+                "display": "Laboratory"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "32781-7"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "urn:uuid:bc3eaa0b-1ab3-4346-b288-8607ecf7031b"
+        },
+        "effectiveDateTime": "2023-09-20T17:50:00+02:00",
+        "performer": [
+          {
+            "reference": "urn:uuid:4ecbcc4d-6708-4b13-9dfd-b2c2a29fd548"
+          }
+        ],
+        "valueCodeableConcept": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "103448007"
+            }
+          ]
+        },
+        "interpretation": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                "code": "POS",
+                "display": "Positive"
+              }
+            ]
+          }
+        ],
+        "specimen": {
+          "reference": "urn:uuid:069523b9-2da6-4c4f-9403-7916ff521400"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:ab96bd84-8204-4bfe-8887-68ef3f85d0ad",
+      "resource": {
+        "resourceType": "Practitioner",
+        "id": "ab96bd84-8204-4bfe-8887-68ef3f85d0ad",
+        "identifier": [
+          {
+            "system": "urn:oid:2.51.1.3",
+            "value": "7601000234438"
+          }
+        ],
+        "name": [
+          {
+            "family": "Giacometti",
+            "given": [
+              "Monika"
+            ]
+          }
+        ],
+        "telecom": [
+          {
+            "system": "phone",
+            "value": "+41 79 111 44 55"
+          },
+          {
+            "system": "email",
+            "value": "m.giacometti@ks-abc.ch"
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:393ba0f9-81cc-47d7-a217-30b75ac20574",
+      "resource": {
+        "resourceType": "Organization",
+        "id": "393ba0f9-81cc-47d7-a217-30b75ac20574",
+        "identifier": [
+          {
+            "system": "urn:oid:2.16.756.5.45",
+            "value": "A99684215"
+          }
+        ],
+        "name": "Kantonsspital ABC",
+        "address": [
+          {
+            "line": [
+              "Aortastrasse 22"
+            ],
+            "_line": [
+              {
+                "extension": [
+                  {
+                    "url": "http://hl7.org/fhir/StructureDefinition/iso21090-ADXP-streetName",
+                    "valueString": "Aortastrasse"
+                  },
+                  {
+                    "url": "http://hl7.org/fhir/StructureDefinition/iso21090-ADXP-houseNumber",
+                    "valueString": "22"
+                  },
+                  {
+                    "url": "http://hl7.org/fhir/StructureDefinition/iso21090-ADXP-postBox",
+                    "valueString": "Postfach 18"
+                  }
+                ]
+              }
+            ],
+            "city": "Bern",
+            "postalCode": "3000"
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:692734af-6dcd-4910-b24c-3f132ad726ad",
+      "resource": {
+        "resourceType": "PractitionerRole",
+        "id": "692734af-6dcd-4910-b24c-3f132ad726ad",
+        "practitioner": {
+          "reference": "urn:uuid:ab96bd84-8204-4bfe-8887-68ef3f85d0ad"
+        },
+        "organization": {
+          "reference": "urn:uuid:393ba0f9-81cc-47d7-a217-30b75ac20574"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:069523b9-2da6-4c4f-9403-7916ff521400",
+      "resource": {
+        "resourceType": "Specimen",
+        "id": "069523b9-2da6-4c4f-9403-7916ff521400",
+        "type": {
+          "text": "Material declared by Observation.code or non-mandatory"
+        },
+        "subject": {
+          "reference": "urn:uuid:bc3eaa0b-1ab3-4346-b288-8607ecf7031b"
+        },
+        "collection": {
+          "collectedDateTime": "2023-09-18"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:196a41fb-78fd-4d88-b5f9-c807e915dad9",
+      "resource": {
+        "resourceType": "ServiceRequest",
+        "id": "196a41fb-78fd-4d88-b5f9-c807e915dad9",
+        "identifier": [
+          {
+            "value": "26955847714"
+          }
+        ],
+        "status": "completed",
+        "intent": "order",
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "32781-7"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "urn:uuid:bc3eaa0b-1ab3-4346-b288-8607ecf7031b"
+        },
+        "requester": {
+          "reference": "urn:uuid:692734af-6dcd-4910-b24c-3f132ad726ad"
+        },
+        "specimen": [
+          {
+            "reference": "urn:uuid:069523b9-2da6-4c4f-9403-7916ff521400"
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:c0474d76-ea60-4540-8448-7472ff6d1f33",
+      "resource": {
+        "resourceType": "DiagnosticReport",
+        "id": "c0474d76-ea60-4540-8448-7472ff6d1f33",
+        "extension": [
+          {
+            "url": "http://hl7.org/fhir/5.0/StructureDefinition/extension-DiagnosticReport.composition",
+            "valueReference": {
+              "reference": "urn:uuid:305782db-c1e4-4b5e-90af-c808e498adea"
+            }
+          }
+        ],
+        "identifier": [
+          {
+            "system": "urn:ietf:rfc:3986",
+            "value": "urn:uuid:1991332d-6012-443f-9690-9291dtb2cb3b"
+          }
+        ],
+        "basedOn": [
+          {
+            "reference": "urn:uuid:196a41fb-78fd-4d88-b5f9-c807e915dad9"
+          }
+        ],
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "11502-2",
+              "display": "Laboratory report"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "urn:uuid:bc3eaa0b-1ab3-4346-b288-8607ecf7031b"
+        },
+        "performer": [
+          {
+            "reference": "urn:uuid:4ecbcc4d-6708-4b13-9dfd-b2c2a29fd548"
+          }
+        ],
+        "specimen": [
+          {
+            "reference": "urn:uuid:069523b9-2da6-4c4f-9403-7916ff521400"
+          }
+        ],
+        "result": [
+          {
+            "reference": "urn:uuid:61141689-fa18-4b68-9fba-0a9bd5783cbc"
+          }
+        ]
+      }
+    }
+  ]
+}
