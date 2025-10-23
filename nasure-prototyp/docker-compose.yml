@@ -45,6 +45,24 @@ services:
       - ./scripts:/app/scripts
     command: uvicorn fhir_ingestion.entrypoints.fhir_api:app --host=0.0.0.0 --port=8000
 
+  lab-dp-consumer:
+    build: .
+    environment:
+      REDIS_HOST: redis
+      DB_HOST: postgres
+      DB_USER: lab_dp_user
+      DB_PASSWORD: lab_dp_pass
+      DB_NAME: lab_dp_db
+      API_HOST: fhir-api
+    depends_on:
+      - redis
+      - postgres
+      - fhir-api
+    volumes:
+      - ./src:/app/src
+    command: python3 -m lab_dp.entrypoints.redis_eventconsumer
+    restart: unless-stopped
+
   tests:
     build: .
     environment:
