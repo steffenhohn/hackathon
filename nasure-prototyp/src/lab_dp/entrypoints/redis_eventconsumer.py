@@ -45,6 +45,8 @@ def handle_bundle_stored(m):
     When a bundle is stored in fhir_ingestion, it publishes a BundleStored event
     to Redis. This handler receives it and creates a data product.
 
+    Only processes bundles with bundle_type '4241000179101' (Laborbericht).
+
     Args:
         m: Redis message dictionary
     """
@@ -54,12 +56,17 @@ def handle_bundle_stored(m):
         # Parse message data
         data = json.loads(m["data"])
         bundle_id = data.get("bundle_id")
+        bundle_type = data.get("bundle_type")
 
         if not bundle_id:
             logger.error("No bundle_id in message: %s", data)
             return
 
-        logger.info(f"Processing BundleStored event for bundle {bundle_id}")
+        # Filter: Only process Laborbericht (4241000179101)
+        if not is_laborbericht(bundle_type):
+            return
+
+        logger.info(f"Processing BundleStored event for Laborbericht bundle {bundle_id}")
 
         # Create command to process the bundle
         cmd = commands.CreateDataProduct(bundle_id=bundle_id)
@@ -74,6 +81,28 @@ def handle_bundle_stored(m):
         logger.error(f"Failed to parse JSON from message: {e}")
     except Exception as e:
         logger.error(f"Error handling bundle stored event: {e}", exc_info=True)
+
+
+def is_laborbericht(bundle_type):
+    """
+    Check if bundle_type is a Laborbericht.
+
+    Args:
+        bundle_type: Tuple (code, display), e.g., ('4241000179101', 'Laborbericht')
+
+    Returns:
+        bool: True if bundle_type code is 4241000179101
+    """
+    LABORBERICHT_CODE = "4241000179101"
+
+    if not bundle_type:
+        return False
+
+    # Expecting a tuple: (code, display)
+    if isinstance(bundle_type, (tuple, list)) and len(bundle_type) >= 1:
+        return bundle_type[0] == LABORBERICHT_CODE
+
+    return False
 
 
 if __name__ == "__main__":

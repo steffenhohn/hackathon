@@ -16,6 +16,7 @@ def test_fhir_bundle_creation():
     bundle = FhirBundle(
         bundle_id="test-001",
         bundle_data=bundle_data,
+        bundle_type="test-type",
         source_system="test-system"
     )
 
@@ -34,6 +35,7 @@ def test_fhir_bundle_store_generates_events():
     bundle = FhirBundle(
         bundle_id="test-001",
         bundle_data=bundle_data,
+        bundle_type="test-type",
         source_system="test-system"
     )
 
@@ -68,6 +70,7 @@ def test_fhir_bundle_can_only_be_stored_once():
     bundle = FhirBundle(
         bundle_id="test-001",
         bundle_data=bundle_data,
+        bundle_type="test-type",
         source_system="test-system"
     )
 
