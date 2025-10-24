@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 def get_quality_metrics(uow: AbstractUnitOfWork) -> Dict[str, Any]:
     """
-    Get overall quality metrics with two types of latency:
+    Get overall quality metrics with two types of latency and report count:
 
     1. Reporting Latency: Time from lab report creation to storage in our system
        (stored_at - report_timestamp)
@@ -25,10 +25,13 @@ def get_quality_metrics(uow: AbstractUnitOfWork) -> Dict[str, Any]:
     2. Processing Latency: Time from storage to data product creation
        (created_at - stored_at)
 
+    3. Reports Count: Number of new laboratory reports in the last 24 hours
+
     Returns:
         - last_updated: When the most recent report was created
         - avg_reporting_latency_hours: Average time from lab report to storage
         - avg_processing_latency_seconds: Average time from storage to data product
+        - reports_last_24h: Count of new reports in last 24 hours
     """
     with uow:
         session = uow.session
@@ -62,10 +65,22 @@ def get_quality_metrics(uow: AbstractUnitOfWork) -> Dict[str, Any]:
             """)
         ).scalar()
 
+        # Count new reports in last 24 hours
+        since = datetime.utcnow() - timedelta(hours=24)
+        reports_count = session.execute(
+            text("""
+                SELECT COUNT(*)
+                FROM metrics
+                WHERE created_at >= :since
+            """),
+            dict(since=since)
+        ).scalar()
+
         return {
             "last_updated": last_updated.isoformat() if last_updated else None,
-            "avg_reporting_latency_hours": float(avg_reporting_latency) if avg_reporting_latency else None,
-            "avg_processing_latency_seconds": float(avg_processing_latency) if avg_processing_latency else None,
+            "avg_reporting_latency_hours": round(float(avg_reporting_latency), 2) if avg_reporting_latency else None,
+            "avg_processing_latency_seconds": round(float(avg_processing_latency), 2) if avg_processing_latency else None,
+            "reports_last_24h": int(reports_count) if reports_count else 0,
             "queried_at": datetime.utcnow().isoformat(),
         }
 
