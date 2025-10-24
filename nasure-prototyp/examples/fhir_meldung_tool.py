@@ -62,6 +62,60 @@ if st.button("Generate JSON"):
             else:
                 obs["interpretation"][0]["coding"][0]["code"] = "IND"
 
+    # --- Update timestamp ---
+    bundle["timestamp"] = datetime.now().isoformat()
+
+    # --- Prepare file ---
+    file_name = f"FHIR_Meldung_{pat_id}.json"
+    output_path = Path("ch_elm_bundles") / file_name
+
+    # Write file to ch_elm_bundles folder
+    with open(output_path, "w", encoding="utf-8") as out:
+        json.dump(bundle, out, indent=2, ensure_ascii=False)
+
+    st.success(f"FHIR Meldung gespeichert unter: {output_path}")
+
+    # Offer browser download too
+    json_str = json.dumps(bundle, indent=2, ensure_ascii=False)
+    st.download_button(
+        label="⬇️ Download FHIR Meldung JSON",
+        data=json_str,
+        file_name=file_name,
+        mime="application/json"
+    )
+
+    st.json(bundle)
+
+    bundle = deepcopy(template)
+
+    # --- Update Patient ---
+    for entry in bundle["entry"]:
+        if entry["resource"]["resourceType"] == "Patient":
+            patient = entry["resource"]
+            patient["id"] = pat_id
+            patient["name"][0]["family"] = pat_family
+            patient["name"][0]["given"] = [pat_given]
+            patient["gender"] = pat_gender
+            patient["birthDate"] = pat_birth.isoformat()
+            patient["address"][0]["city"] = pat_city
+            patient["address"][0]["postalCode"] = pat_postcode
+            patient["address"][0]["state"] = pat_canton
+
+    # --- Update Observation ---
+    for entry in bundle["entry"]:
+        if entry["resource"]["resourceType"] == "Observation":
+            obs = entry["resource"]
+            obs["effectiveDateTime"] = obs_date.isoformat()
+            obs["code"]["coding"][0]["code"] = obs_code
+            obs["code"]["coding"][0]["display"] = obs_display
+            obs["valueCodeableConcept"]["coding"][0]["display"] = obs_value
+            if obs_value.lower() == "positive":
+                obs["interpretation"][0]["coding"][0]["code"] = "POS"
+            elif obs_value.lower() == "negative":
+                obs["interpretation"][0]["coding"][0]["code"] = "NEG"
+            else:
+                obs["interpretation"][0]["coding"][0]["code"] = "IND"
+
     # Update timestamp
     bundle["timestamp"] = datetime.now().isoformat()
 
@@ -76,4 +130,5 @@ if st.button("Generate JSON"):
 
     st.success("FHIR Meldung erfolgreich erstellt!")
     st.json(bundle)
+
 
