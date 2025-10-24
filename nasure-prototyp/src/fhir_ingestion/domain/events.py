@@ -12,6 +12,7 @@ class BundleStored(Event):
     """Event raised when a FHIR bundle has been successfully stored in MinIO."""
     bundle_id: str
     object_key: str
+    bundle_type: str
     source_system: str
     stored_at: datetime
     bundle_size: int = 0

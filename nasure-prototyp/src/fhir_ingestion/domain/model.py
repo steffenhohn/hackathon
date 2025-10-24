@@ -9,9 +9,10 @@ from fhir_ingestion.domain.events import BundleStored
 class FhirBundle:
     """Domain entity representing a FHIR bundle in storage."""
 
-    def __init__(self, bundle_id: str, bundle_data: Dict[str, Any], source_system: str):
+    def __init__(self, bundle_id: str, bundle_data: Dict[str, Any], bundle_type: str, source_system: str):
         self.bundle_id = bundle_id
         self.bundle_data = bundle_data
+        self.bundle_type = bundle_type
         self.source_system = source_system
         self.stored_at = None
         self.object_key = None
@@ -31,6 +32,7 @@ class FhirBundle:
             BundleStored(
                 bundle_id=self.bundle_id,
                 object_key=self.object_key,
+                bundle_type=self.bundle_type,
                 source_system=self.source_system,
                 stored_at=self.stored_at
             )

@@ -42,12 +42,20 @@ services:
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin123
       MINIO_BUCKET: lab-raw-data
+      DB_HOST: postgres
+      DB_USER: lab_dp_user
+      DB_PASSWORD: lab_dp_pass
+      DB_NAME: lab_dp_db
+      API_HOST: fhir-api
     depends_on:
       - redis
       - minio
+      - postgres
     volumes:
       - ./src:/app/src
+      - ./tests:/app/tests
       - ./scripts:/app/scripts
+      - ./examples:/app/examples
     command: uvicorn fhir_ingestion.entrypoints.fhir_api:app --host=0.0.0.0 --port=8000
 
   lab-dp-consumer:
@@ -68,41 +76,56 @@ services:
     command: python3 -m lab_dp.entrypoints.redis_eventconsumer
     restart: unless-stopped
 
-  tests:
-    build: .
-    environment:
-      REDIS_HOST: redis
-      MINIO_HOST: minio
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin123
-      MINIO_BUCKET: lab-raw-data
-      API_HOST: fhir-api
-    depends_on:
-      - fhir-api
-      - redis
-      - minio
-    volumes:
-      - ./src:/app/src
-      - ./tests:/app/tests
-      - ./scripts:/app/scripts
-    command: pytest tests/ -v
-    profiles:
-      - test
-
-  patient-service-api:
+  lab-dp-api:
     build: .
     ports:
-      - "8002:8002"  # Host port 8002, container port 8002
+      - "8001:8001"
     environment:
       DB_HOST: postgres
       DB_USER: lab_dp_user
       DB_PASSWORD: lab_dp_pass
       DB_NAME: lab_dp_db
-      LOG_LEVEL: DEBUG  # Set log level to DEBUG
+    depends_on:
+      - postgres
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+      - ./scripts:/app/scripts
+    command: uvicorn lab_dp.entrypoints.lab_api:app --host=0.0.0.0 --port=8001
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SECURITY_ADMIN_USER: admin
+      GF_INSTALL_PLUGINS: yesoreyeram-infinity-datasource
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - lab-dp-api
+    restart: unless-stopped
+
+  patient-service-api:
+    build: .
+    ports:
+      - "8002:8002"
+    environment:
+      DB_HOST: postgres
+      DB_USER: lab_dp_user
+      DB_PASSWORD: lab_dp_pass
+      DB_NAME: lab_dp_db
+      LOG_LEVEL: DEBUG
     depends_on:
       postgres:
-        condition: service_healthy  # Wait for postgres to be healthy    
+        condition: service_healthy
     volumes:
       - ./src:/app/src
     command: uvicorn shared.entrypoints.patient_service_api:app --host=0.0.0.0 --port=8002
     restart: unless-stopped
+
+volumes:
+  grafana_data:

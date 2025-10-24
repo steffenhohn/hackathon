@@ -45,6 +45,8 @@ def handle_bundle_stored(m):
     When a bundle is stored in fhir_ingestion, it publishes a BundleStored event
     to Redis. This handler receives it and creates a data product.
 
+    Only processes bundles with bundle_type '4241000179101' (Laborbericht).
+
     Args:
         m: Redis message dictionary
     """
@@ -54,15 +56,27 @@ def handle_bundle_stored(m):
         # Parse message data
         data = json.loads(m["data"])
         bundle_id = data.get("bundle_id")
+        bundle_type = data.get("bundle_type")
+        stored_at_str = data.get("stored_at")
 
         if not bundle_id:
             logger.error("No bundle_id in message: %s", data)
             return
 
-        logger.info(f"Processing BundleStored event for bundle {bundle_id}")
+        # Filter: Only process Laborbericht (4241000179101)
+        logger.info(f"Checking if bundle {bundle_id} is a Laborbericht, bundle_type={bundle_type}")
+        if not is_laborbericht(bundle_type):
+            logger.info(f"Skipping bundle {bundle_id} - not a Laborbericht (bundle_type={bundle_type})")
+            return
+
+        logger.info(f"Processing BundleStored event for Laborbericht bundle {bundle_id}")
+
+        # Parse stored_at timestamp from BundleStored event
+        from datetime import datetime
+        stored_at = datetime.fromisoformat(stored_at_str.replace('Z', '+00:00')) if stored_at_str else datetime.utcnow()
 
         # Create command to process the bundle
-        cmd = commands.CreateDataProduct(bundle_id=bundle_id)
+        cmd = commands.CreateDataProduct(bundle_id=bundle_id, stored_at=stored_at)
 
         # Create unit of work and handle command
         uow = SqlAlchemyUnitOfWork()
@@ -74,6 +88,33 @@ def handle_bundle_stored(m):
         logger.error(f"Failed to parse JSON from message: {e}")
     except Exception as e:
         logger.error(f"Error handling bundle stored event: {e}", exc_info=True)
+
+
+def is_laborbericht(bundle_type):
+    """
+    Check if bundle_type is a Laborbericht (Swiss laboratory report).
+
+    Args:
+        bundle_type: List or tuple (code, display), e.g., ['4241000179101', 'Laborbericht']
+                     Note: JSON deserializes tuples as lists
+
+    Returns:
+        bool: True if bundle_type code is 4241000179101 (CH-eLM Laborbericht)
+    """
+    LABORBERICHT_CODE = "4241000179101"  # Swiss CH-eLM code for Laborbericht
+
+    if not bundle_type:
+        logger.debug("bundle_type is None or empty")
+        return False
+
+    # Handle both tuple (from Python) and list (from JSON deserialization)
+    if isinstance(bundle_type, (tuple, list)) and len(bundle_type) >= 1:
+        result = bundle_type[0] == LABORBERICHT_CODE
+        logger.debug(f"bundle_type check: {bundle_type[0]} == {LABORBERICHT_CODE} -> {result}")
+        return result
+
+    logger.debug(f"bundle_type has unexpected format: {type(bundle_type)}, value: {bundle_type}")
+    return False
 
 
 if __name__ == "__main__":

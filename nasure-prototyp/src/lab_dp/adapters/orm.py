@@ -6,6 +6,7 @@ from sqlalchemy import (
     Integer,
     String,
     Date,
+    DateTime,
     ForeignKey,
     event,
 )
@@ -29,6 +30,20 @@ products = Table(
     Column("interpretation", String(255)),
     Column("timestamp", String(255)),
     Column("version_number", Integer, nullable=False, server_default="0"),
+)
+
+# Read model table - not mapped to domain entity
+# Following Cosmic Python pattern: define in metadata for SQLAlchemy awareness
+metrics = Table(
+    "metrics",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("product_id", String(255)),
+    Column("pathogen_code", String(255)),
+    Column("pathogen_description", String(255)),
+    Column("report_timestamp", String(255)),
+    Column("stored_at", DateTime),
+    Column("created_at", DateTime),
 )
 
 def start_mappers():

@@ -112,6 +112,8 @@ nasure-prototyp/.tox/
 nasure-prototyp/.nox/
 nasure-prototyp/.ipynb_checkpoints
 
+venv
+
 # ========================================
 # Docker
 # ========================================

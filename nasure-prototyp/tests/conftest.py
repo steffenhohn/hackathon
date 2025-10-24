@@ -102,9 +102,10 @@ def lab_dp_postgres_session():
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker, clear_mappers
     from lab_dp.adapters import orm
+    import config
 
-    # Use test database
-    engine = create_engine("postgresql://lab_dp_user:lab_dp_pass@localhost:5433/lab_dp_test_db")
+    # Use config to get correct connection (handles Docker vs localhost)
+    engine = create_engine(config.get_postgres_uri())
     orm.metadata.create_all(engine)
     orm.start_mappers()
 
@@ -116,25 +117,59 @@ def lab_dp_postgres_session():
     session.close()
     clear_mappers()
     orm.metadata.drop_all(engine)
+    engine.dispose()
 
 
 @pytest.fixture
 def fake_fhir_client():
-    """Provide a fake FHIR client for testing without HTTP calls"""
-    from lab_dp.adapters.fhir_client import AbstractFHIRClient
+    """Provide a fake FHIR client that loads bundles from examples folder"""
+    import json
+    from lab_dp.adapters.fhir_client import AbstractFHIRClient, FHIRClientError
 
     class FakeFHIRClient(AbstractFHIRClient):
         def __init__(self):
             self.bundles = {}
+            # Load example bundles from ch_elm_bundles folder
+            examples_dir = Path(__file__).parent.parent / "examples" / "ch_elm_bundles"
+
+            if not examples_dir.exists():
+                raise FileNotFoundError(f"Examples directory not found: {examples_dir}")
+
+            for bundle_file in examples_dir.glob("*.json"):
+                with open(bundle_file) as f:
+                    bundle_data = json.load(f)
+                    # Use filename without extension as bundle_id
+                    bundle_id = bundle_file.stem
+                    self.bundles[bundle_id] = bundle_data
+
+            # Log loaded bundles for debugging
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"Loaded {len(self.bundles)} bundles: {list(self.bundles.keys())}")
 
         def add_bundle(self, bundle_id: str, bundle_data: dict):
-            """Pre-populate the fake client with bundle data"""
+            """Pre-populate the fake client with additional bundle data"""
             self.bundles[bundle_id] = bundle_data
 
         def get_bundle(self, bundle_id: str) -> dict:
             if bundle_id not in self.bundles:
-                from lab_dp.adapters.fhir_client import FHIRClientError
                 raise FHIRClientError(f"Bundle {bundle_id} not found")
             return self.bundles[bundle_id]
 
     return FakeFHIRClient()
+
+
+@pytest.fixture
+def sqlite_session_factory():
+    """Create SQLite in-memory database for fast testing."""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker, clear_mappers
+    from lab_dp.adapters import orm
+
+    engine = create_engine("sqlite:///:memory:")
+    orm.metadata.create_all(engine)
+    orm.start_mappers()
+
+    yield sessionmaker(bind=engine)
+
+    clear_mappers()

@@ -31,6 +31,7 @@ class TestMinIORepositoryStorageEvents:
         bundle = FhirBundle(
             bundle_id="test-123",
             bundle_data={"resourceType": "Bundle", "id": "test-123"},
+            bundle_type="test-type",
             source_system="test-system"
         )
 
@@ -81,6 +82,7 @@ class TestMinIORepositoryStorageEvents:
         bundle = FhirBundle(
             bundle_id="test-456",
             bundle_data={"resourceType": "Bundle", "id": "test-456"},
+            bundle_type="test-type",
             source_system="test-system"
         )
 
@@ -119,6 +121,7 @@ class TestMinIORepositoryStorageEvents:
         bundle = FhirBundle(
             bundle_id="test-789",
             bundle_data=bundle_data,
+            bundle_type="test-type",
             source_system="test-system"
         )
 
@@ -158,6 +161,7 @@ class TestMinIORepositoryStorageEvents:
         bundle = FhirBundle(
             bundle_id="unique-bundle-999",
             bundle_data={"resourceType": "Bundle"},
+            bundle_type="test-type",
             source_system="test-system"
         )
 

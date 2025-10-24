@@ -16,10 +16,13 @@ def store_fhir_bundle(command: StoreFHIRBundle, uow: FHIRIngestionUnitOfWork) ->
     with uow:
         logger.info(f"Storing FHIR bundle {command.bundle_id}")
 
+        bundle_type = extract_bundle_type(command.bundle_data)
+        logger.info(f"Extracted bundle types: {bundle_type}")
         # Create domain entity
         bundle = FhirBundle(
             bundle_id=command.bundle_id,
             bundle_data=command.bundle_data,
+            bundle_type=bundle_type,
             source_system=command.source_system
         )
 
@@ -31,6 +34,28 @@ def store_fhir_bundle(command: StoreFHIRBundle, uow: FHIRIngestionUnitOfWork) ->
         uow.commit()
 
     return object_key
+
+def extract_bundle_type(bundle: dict) -> tuple[str, str] | None:
+    """
+    Extracts (code, display) from the first Composition.type.coding in a FHIR Bundle.
+
+    Args:
+        bundle (dict): The FHIR Bundle as a Python dict.
+
+    Returns:
+        tuple[str, str] | None: Tuple (code, display) from first Composition, or None if not found.
+    """
+    for entry in bundle.get("entry", []):
+        resource = entry.get("resource", {})
+        if resource.get("resourceType") == "Composition":
+            type_info = resource.get("type", {})
+            codings = type_info.get("coding", [])
+            if codings:
+                first_coding = codings[0]
+                code = first_coding.get("code", "")
+                display = first_coding.get("display", "")
+                return (code, display)
+    return None
 
 
 def bundle_stored(event: BundleStored, uow: FHIRIngestionUnitOfWork):
