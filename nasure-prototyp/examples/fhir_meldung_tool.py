@@ -4,7 +4,13 @@ from datetime import date, datetime
 from copy import deepcopy
 
 # Load your base example as a template
-with open("LB_beispiel_Gonorrhoe.json", "r", encoding="utf-8") as f:
+from pathlib import Path
+
+# Define where your example bundles are stored
+bundle_path = Path("ch_elm_bundles") / "LB_beispiel_Gonorrhoe.json"
+
+# Load your base example as a template
+with open(bundle_path, "r", encoding="utf-8") as f:
     template = json.load(f)
 
 st.title("FHIR Meldung Generator (CH-ELM)")
@@ -70,3 +76,4 @@ if st.button("Generate JSON"):
 
     st.success("FHIR Meldung erfolgreich erstellt!")
     st.json(bundle)
+
