@@ -28,6 +28,7 @@ class LabDataProduct:
         self.events.append(
             DataProductCreated(
                 product_id=self.product_id,
+                patient_id=self.patient_id,
                 pathogen_code=self.pathogen_code,
                 pathogen_description=self.pathogen_description,
                 timestamp=self.timestamp,

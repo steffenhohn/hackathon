@@ -10,6 +10,7 @@ from shared.domain.commands import Event
 class DataProductCreated(Event):
     """Event raised when a lab data product has been successfully created."""
     product_id: str
+    patient_id: str
     pathogen_code: str
     pathogen_description: str
     timestamp: str  # Lab report timestamp (from FHIR bundle)

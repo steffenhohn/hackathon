@@ -1,5 +1,6 @@
 import abc
-from typing import Set
+from typing import Set, List
+from sqlalchemy import select
 from lab_dp.adapters import orm
 from lab_dp.domain import domain
 
@@ -19,12 +20,22 @@ class AbstractRepository(abc.ABC):
             self.seen.add(product)
         return product
 
+    def list(self) -> List[domain.LabDataProduct]:
+        products = self._list()
+        for product in products:
+            self.seen.add(product)
+        return products
+
     @abc.abstractmethod
     def _add(self, product: domain.LabDataProduct):
         raise NotImplementedError
 
     @abc.abstractmethod
     def _get(self, product_id) -> domain.LabDataProduct:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def _list(self) -> List[domain.LabDataProduct]:
         raise NotImplementedError
 
 class SqlAlchemyRepository(AbstractRepository):
@@ -37,4 +48,7 @@ class SqlAlchemyRepository(AbstractRepository):
 
     def _get(self, product_id):
         return self.session.query(domain.LabDataProduct).filter_by(product_id=product_id).first()
+
+    def _list(self) -> List[domain.LabDataProduct]:
+        return self.session.query(domain.LabDataProduct).all()
 

@@ -9,10 +9,15 @@ import logging
 
 from lab_dp import views
 from lab_dp.service_layer.unit_of_work import SqlAlchemyUnitOfWork
+from lab_dp.adapters import orm
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Initialize ORM mappers (Cosmic Python pattern)
+orm.start_mappers()
+logger.info("ORM mappers initialized")
 
 app = FastAPI(
     title="Laboratory Data Product API",
@@ -31,34 +36,88 @@ async def health_check():
     }
 
 
+@app.get("/api/v1/data-products")
+def get_data_products(limit: int = 100, offset: int = 0):
+    """
+    Retrieve all lab data products with pagination.
+
+    Following Cosmic Python pattern: API layer is thin, delegates to repository.
+    Serializes objects to dicts inside session context to avoid DetachedInstanceError.
+
+    Args:
+        limit: Maximum number of products to return (default: 100)
+        offset: Number of products to skip (default: 0)
+
+    Returns:
+        List of data products with pagination info
+    """
+    uow = SqlAlchemyUnitOfWork()
+
+    with uow:
+        # Get all products from repository
+        all_products = uow.products.list()
+
+        # Apply pagination
+        total = len(all_products)
+        products = all_products[offset:offset + limit]
+
+        # Serialize to dicts INSIDE session context (Cosmic Python pattern)
+        # This avoids DetachedInstanceError by accessing attributes while session is active
+        serialized_products = [
+            {
+                "product_id": p.product_id,
+                "patient_id": p.patient_id,
+                "bundle_id": p.bundle_id,
+                "timestamp": p.timestamp,
+                "pathogen_code": p.pathogen_code,
+                "pathogen_description": p.pathogen_description,
+                "interpretation": p.interpretation,
+                "version_number": p.version_number,
+            }
+            for p in products
+        ]
+
+    return {
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "count": len(serialized_products),
+        "data_products": serialized_products
+    }
+
+
 @app.get("/api/v1/data-product/{product_id}")
 def get_data_product(product_id: str):
     """
     Retrieve lab data product by product_id.
 
     Following Cosmic Python pattern: API layer is thin, delegates to repository.
+    Serializes object to dict inside session context to avoid DetachedInstanceError.
     """
     uow = SqlAlchemyUnitOfWork()
 
     with uow:
         product = uow.products.get(product_id)
 
-    if product is None:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Data product {product_id} not found"
-        )
+        if product is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Data product {product_id} not found"
+            )
 
-    return {
-        "product_id": product.product_id,
-        "patient_id": product.patient_id,
-        "bundle_id": product.bundle_id,
-        "timestamp": product.timestamp,
-        "pathogen_code": product.pathogen_code,
-        "pathogen_description": product.pathogen_description,
-        "interpretation": product.interpretation,
-        "version_number": product.version_number,
-    }
+        # Serialize to dict INSIDE session context (Cosmic Python pattern)
+        serialized_product = {
+            "product_id": product.product_id,
+            "patient_id": product.patient_id,
+            "bundle_id": product.bundle_id,
+            "timestamp": product.timestamp,
+            "pathogen_code": product.pathogen_code,
+            "pathogen_description": product.pathogen_description,
+            "interpretation": product.interpretation,
+            "version_number": product.version_number,
+        }
+
+    return serialized_product
 
 
 @app.get("/api/v1/metrics/quality")
