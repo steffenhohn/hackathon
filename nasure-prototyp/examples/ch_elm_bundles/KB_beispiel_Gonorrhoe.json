@@ -122,7 +122,7 @@
   },
   {
     "fullUrl" : "http://test.fhir.ch/r4/Observation/1Obs-NeisseriaGonorrhoeae",
-    {
+    "resource" : {
         "resourceType": "Condition",
         "id": "example-condition",
         "clinicalStatus": {
