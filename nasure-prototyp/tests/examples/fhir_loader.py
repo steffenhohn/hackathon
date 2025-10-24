@@ -9,7 +9,8 @@ class FHIRExampleLoader:
     """Loads FHIR bundle examples from JSON files"""
 
     def __init__(self):
-        self.examples_dir = Path(__file__).parent / "fhir_bundles"
+        # Point to root examples/ch_elm_bundles directory
+        self.examples_dir = Path(__file__).parent.parent.parent / "examples" / "ch_elm_bundles"
 
     def load_example(self, filename: str) -> Dict[str, Any]:
         """Load FHIR bundle example from JSON file"""
@@ -23,15 +24,15 @@ class FHIRExampleLoader:
 
     def load_sample_ch_elm_bundle(self) -> Dict[str, Any]:
         """Load the main CH-eLM sample bundle"""
-        return self.load_example("sample_ch_elm_bundle.json")
+        return self.load_example("legionella_1.json")
 
     def load_minimal_bundle(self) -> Dict[str, Any]:
         """Load minimal test bundle"""
-        return self.load_example("minimal_bundle.json")
+        return self.load_example("anthrax_1.json")
 
     def load_invalid_bundle(self) -> Dict[str, Any]:
-        """Load invalid bundle for error testing"""
-        return self.load_example("invalid_bundle.json")
+        """Load invalid bundle for error testing - returns a minimal malformed bundle"""
+        return {"resourceType": "Bundle", "type": "invalid"}
 
     def create_bundle_with_id(self, base_filename: str, new_id: str) -> Dict[str, Any]:
         """Create a bundle with a specific ID based on existing example"""

@@ -1,4 +1,5 @@
 import logging
+from sqlalchemy import text
 
 from lab_dp.domain.commands import CreateDataProduct
 from lab_dp.service_layer.unit_of_work import AbstractUnitOfWork
@@ -46,7 +47,10 @@ def create_data_product(
             lab_product = transformer.extract_lab_data_product(bundle_data, command.bundle_id)
             logger.info(f"Transformed bundle {command.bundle_id} to product {lab_product.product_id}")
 
-            # Step 3: Store product via repository - returns product_id (Cosmic Python pattern)
+            # Step 3: Call domain method to mark product as created (generates events)
+            lab_product.create()
+
+            # Step 4: Store product via repository - returns product_id (Cosmic Python pattern)
             product_id = uow.products.add(lab_product)
             logger.info(f"Added product {product_id} to repository")
 
@@ -68,3 +72,61 @@ def create_data_product(
     except Exception as e:
         logger.error(f"Unexpected error processing bundle {command.bundle_id}: {e}")
         raise
+
+
+def update_metrics_read_model(event, uow: AbstractUnitOfWork):
+    """
+    Update metrics read model when a data product is created.
+
+    Following Cosmic Python pattern: event handler inserts into denormalized
+    read model table. Aggregations are done in views.py.
+
+    Args:
+        event: DataProductCreated event
+        uow: Unit of work
+    """
+    logger.info(f"Updating metrics read model for product {event.product_id}")
+
+    with uow:
+        uow.session.execute(
+            text("""
+                INSERT INTO metrics
+                    (product_id, pathogen_code, pathogen_description, report_timestamp, created_at)
+                VALUES
+                    (:product_id, :pathogen_code, :pathogen_description, :report_timestamp, :created_at)
+            """),
+            dict(
+                product_id=event.product_id,
+                pathogen_code=event.pathogen_code,
+                pathogen_description=event.pathogen_description,
+                report_timestamp=event.timestamp,
+                created_at=event.created_at,
+            ),
+        )
+        uow.commit()
+
+    logger.info(f"Metrics read model updated for product {event.product_id}")
+
+
+def publish_data_product_event(event, uow: AbstractUnitOfWork):
+    """
+    Publish DataProductCreated event to external systems.
+
+    Following Cosmic Python pattern: publish domain events to Redis
+    for consumption by external services (e.g., alerting, dashboards).
+
+    Args:
+        event: DataProductCreated event
+        uow: Unit of work
+    """
+    logger.info(f"Publishing DataProductCreated event for product {event.product_id}")
+    try:
+        # Import here to avoid circular dependency
+        from lab_dp.adapters import redis_adapter
+
+        redis_adapter.publish("surveillance:data-products", event)
+        logger.info(f"Published DataProductCreated event for {event.product_id}")
+
+    except Exception as e:
+        logger.error(f"Failed to publish event for {event.product_id}: {e}")
+        # Don't re-raise - external failures shouldn't break the flow

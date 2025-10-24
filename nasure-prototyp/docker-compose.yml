@@ -37,12 +37,20 @@ services:
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin123
       MINIO_BUCKET: lab-raw-data
+      DB_HOST: postgres
+      DB_USER: lab_dp_user
+      DB_PASSWORD: lab_dp_pass
+      DB_NAME: lab_dp_db
+      API_HOST: fhir-api
     depends_on:
       - redis
       - minio
+      - postgres
     volumes:
       - ./src:/app/src
+      - ./tests:/app/tests
       - ./scripts:/app/scripts
+      - ./examples:/app/examples
     command: uvicorn fhir_ingestion.entrypoints.fhir_api:app --host=0.0.0.0 --port=8000
 
   lab-dp-consumer:
@@ -63,23 +71,18 @@ services:
     command: python3 -m lab_dp.entrypoints.redis_eventconsumer
     restart: unless-stopped
 
-  tests:
+  lab-dp-api:
     build: .
+    ports:
+      - "8001:8001"
     environment:
-      REDIS_HOST: redis
-      MINIO_HOST: minio
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin123
-      MINIO_BUCKET: lab-raw-data
-      API_HOST: fhir-api
+      DB_HOST: postgres
+      DB_USER: lab_dp_user
+      DB_PASSWORD: lab_dp_pass
+      DB_NAME: lab_dp_db
     depends_on:
-      - fhir-api
-      - redis
-      - minio
+      - postgres
     volumes:
       - ./src:/app/src
-      - ./tests:/app/tests
-      - ./scripts:/app/scripts
-    command: pytest tests/ -v
-    profiles:
-      - test
+    command: uvicorn lab_dp.entrypoints.lab_api:app --host=0.0.0.0 --port=8001
+    restart: unless-stopped

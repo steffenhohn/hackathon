@@ -7,16 +7,20 @@ up:
 	docker compose up -d
 
 # Run all tests
-test:
-	docker compose --profile test run --rm tests
+test: up
+	docker compose run --rm --no-deps --entrypoint=pytest fhir-api /app/tests/unit /app/tests/integration /app/tests/e2e -v
 
 # Run unit tests only (no dependencies needed)
 unit-tests:
-	docker compose run --rm --no-deps tests pytest tests/unit/ -v
+	docker compose run --rm --no-deps --entrypoint=pytest fhir-api /app/tests/unit -v
 
-# Run e2e tests only
-e2e-tests:
-	docker compose --profile test run --rm tests pytest tests/e2e/ -v
+# Run integration tests
+integration-tests: up
+	docker compose run --rm --no-deps --entrypoint=pytest fhir-api /app/tests/integration -v
+
+# Run e2e tests
+e2e-tests: up
+	docker compose run --rm --no-deps --entrypoint=pytest fhir-api /app/tests/e2e -v
 
 # Build image
 build:
@@ -30,4 +34,4 @@ down:
 clean:
 	docker compose down -v
 
-.PHONY: up test unit-tests e2e-tests build down clean
+.PHONY: up test unit-tests integration-tests e2e-tests build down clean

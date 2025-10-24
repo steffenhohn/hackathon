@@ -7,6 +7,7 @@ from typing import List, Dict, Callable, Type, Union, TYPE_CHECKING
 
 from shared.domain.commands import Command, Event
 from lab_dp.domain.commands import CreateDataProduct
+from lab_dp.domain.events import DataProductCreated
 from lab_dp.service_layer import handlers
 
 if TYPE_CHECKING:
@@ -72,9 +73,12 @@ def handle_command(
         raise
 
 
-# Event handlers - individual event handlers
+# Event handlers - multiple handlers can respond to same event
 EVENT_HANDLERS = {
-    # Add event handlers here as needed
+    DataProductCreated: [
+        handlers.update_metrics_read_model,
+        handlers.publish_data_product_event,
+    ],
 }  # type: Dict[Type[Event], List[Callable]]
 
 # Command handlers - single handler per command type

@@ -63,7 +63,9 @@ def handle_bundle_stored(m):
             return
 
         # Filter: Only process Laborbericht (4241000179101)
+        logger.info(f"Checking if bundle {bundle_id} is a Laborbericht, bundle_type={bundle_type}")
         if not is_laborbericht(bundle_type):
+            logger.info(f"Skipping bundle {bundle_id} - not a Laborbericht (bundle_type={bundle_type})")
             return
 
         logger.info(f"Processing BundleStored event for Laborbericht bundle {bundle_id}")
@@ -85,23 +87,28 @@ def handle_bundle_stored(m):
 
 def is_laborbericht(bundle_type):
     """
-    Check if bundle_type is a Laborbericht.
+    Check if bundle_type is a Laborbericht (Swiss laboratory report).
 
     Args:
-        bundle_type: Tuple (code, display), e.g., ('4241000179101', 'Laborbericht')
+        bundle_type: List or tuple (code, display), e.g., ['4241000179101', 'Laborbericht']
+                     Note: JSON deserializes tuples as lists
 
     Returns:
-        bool: True if bundle_type code is 4241000179101
+        bool: True if bundle_type code is 4241000179101 (CH-eLM Laborbericht)
     """
-    LABORBERICHT_CODE = "4241000179101"
+    LABORBERICHT_CODE = "4241000179101"  # Swiss CH-eLM code for Laborbericht
 
     if not bundle_type:
+        logger.debug("bundle_type is None or empty")
         return False
 
-    # Expecting a tuple: (code, display)
+    # Handle both tuple (from Python) and list (from JSON deserialization)
     if isinstance(bundle_type, (tuple, list)) and len(bundle_type) >= 1:
-        return bundle_type[0] == LABORBERICHT_CODE
+        result = bundle_type[0] == LABORBERICHT_CODE
+        logger.debug(f"bundle_type check: {bundle_type[0]} == {LABORBERICHT_CODE} -> {result}")
+        return result
 
+    logger.debug(f"bundle_type has unexpected format: {type(bundle_type)}, value: {bundle_type}")
     return False
 
 
