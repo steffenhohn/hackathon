@@ -10,6 +10,18 @@
   "liveNow": false,
   "panels": [
     {
+      "type": "row",
+      "title": "Main Metrics",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 10
+    },
+    {
       "datasource": {
         "type": "yesoreyeram-infinity-datasource",
         "uid": "LabDPAPI"
@@ -24,16 +36,108 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#B8D4E8",
                 "value": null
               },
               {
-                "color": "yellow",
-                "value": 10
+                "color": "#B8E8C8",
+                "value": 100
               },
               {
-                "color": "red",
-                "value": 50
+                "color": "#F4E8B8",
+                "value": 500
+              }
+            ]
+          },
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 0,
+        "y": 1
+      },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "textMode": "value_and_name",
+        "text": {
+          "titleSize": 16,
+          "valueSize": 40
+        }
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "LabDPAPI"
+          },
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "/api/v1/metrics/quality",
+          "url_options": {
+            "method": "GET"
+          },
+          "root_selector": "",
+          "columns": [
+            {
+              "selector": "reports_last_24h",
+              "text": "Reports",
+              "type": "number"
+            }
+          ],
+          "parser": "backend"
+        }
+      ],
+      "title": "Reports Processed (24h)",
+      "type": "stat",
+      "description": "Total laboratory reports processed in the last 24 hours"
+    },
+    {
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "LabDPAPI"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#B8E8C8",
+                "value": null
+              },
+              {
+                "color": "#F4E8B8",
+                "value": 12
+              },
+              {
+                "color": "#F4D4B8",
+                "value": 24
+              },
+              {
+                "color": "#F4B8B8",
+                "value": 48
               }
             ]
           },
@@ -43,16 +147,16 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 9,
         "w": 8,
-        "x": 0,
-        "y": 0
+        "x": 8,
+        "y": 1
       },
       "id": 1,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
-        "justifyMode": "auto",
+        "justifyMode": "center",
         "orientation": "auto",
         "reduceOptions": {
           "values": false,
@@ -61,8 +165,11 @@
           ],
           "fields": ""
         },
-        "textMode": "auto",
-        "text": {}
+        "textMode": "value_and_name",
+        "text": {
+          "titleSize": 16,
+          "valueSize": 40
+        }
       },
       "pluginVersion": "10.0.0",
       "targets": [
@@ -75,13 +182,15 @@
           "type": "json",
           "source": "url",
           "format": "table",
-          "url": "http://lab-dp-api:8001/api/v1/metrics/quality",
-          "method": "GET",
+          "url": "/api/v1/metrics/quality",
+          "url_options": {
+            "method": "GET"
+          },
           "root_selector": "",
           "columns": [
             {
               "selector": "avg_reporting_latency_hours",
-              "text": "Value",
+              "text": "Hours",
               "type": "number"
             }
           ],
@@ -90,7 +199,7 @@
       ],
       "title": "Reporting Latency",
       "type": "stat",
-      "description": "Average time from lab report creation to storage (hours)"
+      "description": "Average time from lab report creation to system storage"
     },
     {
       "datasource": {
@@ -107,16 +216,20 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#B8E8C8",
                 "value": null
               },
               {
-                "color": "yellow",
+                "color": "#F4E8B8",
                 "value": 5
               },
               {
-                "color": "red",
+                "color": "#F4D4B8",
                 "value": 10
+              },
+              {
+                "color": "#F4B8B8",
+                "value": 30
               }
             ]
           },
@@ -126,16 +239,16 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 9,
         "w": 8,
-        "x": 8,
-        "y": 0
+        "x": 16,
+        "y": 1
       },
       "id": 2,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
-        "justifyMode": "auto",
+        "justifyMode": "center",
         "orientation": "auto",
         "reduceOptions": {
           "values": false,
@@ -144,8 +257,11 @@
           ],
           "fields": ""
         },
-        "textMode": "auto",
-        "text": {}
+        "textMode": "value_and_name",
+        "text": {
+          "titleSize": 16,
+          "valueSize": 40
+        }
       },
       "pluginVersion": "10.0.0",
       "targets": [
@@ -158,13 +274,15 @@
           "type": "json",
           "source": "url",
           "format": "table",
-          "url": "http://lab-dp-api:8001/api/v1/metrics/quality",
-          "method": "GET",
+          "url": "/api/v1/metrics/quality",
+          "url_options": {
+            "method": "GET"
+          },
           "root_selector": "",
           "columns": [
             {
               "selector": "avg_processing_latency_seconds",
-              "text": "Value",
+              "text": "Seconds",
               "type": "number"
             }
           ],
@@ -173,82 +291,261 @@
       ],
       "title": "Processing Latency",
       "type": "stat",
-      "description": "Average time from storage to data product creation (seconds)"
+      "description": "Average time from storage to data product creation"
     },
     {
-      "datasource": {
-        "type": "yesoreyeram-infinity-datasource",
-        "uid": "LabDPAPI"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "blue",
-                "value": null
-              }
-            ]
-          },
-          "unit": "none",
-          "decimals": 0
-        },
-        "overrides": []
-      },
+      "type": "row",
+      "title": "Disease Overview",
+      "collapsed": true,
       "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 0
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 10
       },
-      "id": 3,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "textMode": "auto",
-        "text": {}
-      },
-      "pluginVersion": "10.0.0",
-      "targets": [
+      "id": 11,
+      "panels": [
         {
           "datasource": {
             "type": "yesoreyeram-infinity-datasource",
             "uid": "LabDPAPI"
           },
-          "refId": "A",
-          "type": "json",
-          "source": "url",
-          "format": "table",
-          "url": "http://lab-dp-api:8001/api/v1/metrics/pathogen/32781-7",
-          "method": "GET",
-          "root_selector": "",
-          "columns": [
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "blue",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "short",
+              "decimals": 0
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 0,
+            "y": 11
+          },
+          "id": 3,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "center",
+            "orientation": "auto",
+            "reduceOptions": {
+              "values": false,
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": ""
+            },
+            "textMode": "value_and_name",
+            "text": {
+              "titleSize": 14,
+              "valueSize": 32
+            }
+          },
+          "pluginVersion": "10.0.0",
+          "targets": [
             {
-              "selector": "count",
-              "text": "Value",
-              "type": "number"
+              "datasource": {
+                "type": "yesoreyeram-infinity-datasource",
+                "uid": "LabDPAPI"
+              },
+              "refId": "A",
+              "type": "json",
+              "source": "url",
+              "format": "table",
+              "url": "/api/v1/metrics/pathogen/32781-7",
+              "url_options": {
+                "method": "GET"
+              },
+              "root_selector": "",
+              "columns": [
+                {
+                  "selector": "count",
+                  "text": "Reports",
+                  "type": "number"
+                }
+              ],
+              "parser": "backend"
             }
           ],
-          "parser": "backend"
+          "title": "Legionella (24h)",
+          "type": "stat",
+          "description": "Legionella pneumophila reports in last 24 hours"
+        },
+        {
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "LabDPAPI"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "blue",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "short",
+              "decimals": 0
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 8,
+            "y": 11
+          },
+          "id": 5,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "center",
+            "orientation": "auto",
+            "reduceOptions": {
+              "values": false,
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": ""
+            },
+            "textMode": "value_and_name",
+            "text": {
+              "titleSize": 14,
+              "valueSize": 32
+            }
+          },
+          "pluginVersion": "10.0.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "yesoreyeram-infinity-datasource",
+                "uid": "LabDPAPI"
+              },
+              "refId": "A",
+              "type": "json",
+              "source": "url",
+              "format": "table",
+              "url": "/api/v1/metrics/pathogen/31726-3",
+              "url_options": {
+                "method": "GET"
+              },
+              "root_selector": "",
+              "columns": [
+                {
+                  "selector": "count",
+                  "text": "Reports",
+                  "type": "number"
+                }
+              ],
+              "parser": "backend"
+            }
+          ],
+          "title": "Anthrax (24h)",
+          "type": "stat",
+          "description": "Bacillus anthracis reports in last 24 hours"
+        },
+        {
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "LabDPAPI"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "blue",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "short",
+              "decimals": 0
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 16,
+            "y": 11
+          },
+          "id": 6,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "center",
+            "orientation": "auto",
+            "reduceOptions": {
+              "values": false,
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": ""
+            },
+            "textMode": "value_and_name",
+            "text": {
+              "titleSize": 14,
+              "valueSize": 32
+            }
+          },
+          "pluginVersion": "10.0.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "yesoreyeram-infinity-datasource",
+                "uid": "LabDPAPI"
+              },
+              "refId": "A",
+              "type": "json",
+              "source": "url",
+              "format": "table",
+              "url": "/api/v1/metrics/pathogen/70568-1",
+              "url_options": {
+                "method": "GET"
+              },
+              "root_selector": "",
+              "columns": [
+                {
+                  "selector": "count",
+                  "text": "Reports",
+                  "type": "number"
+                }
+              ],
+              "parser": "backend"
+            }
+          ],
+          "title": "Malaria (24h)",
+          "type": "stat",
+          "description": "Plasmodium sp reports in last 24 hours"
         }
-      ],
-      "title": "Legionella Reports (24h)",
-      "type": "stat",
-      "description": "Number of Legionella reports in last 24 hours"
+      ]
     }
   ],
   "refresh": "30s",
