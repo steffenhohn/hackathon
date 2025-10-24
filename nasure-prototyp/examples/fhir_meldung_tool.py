@@ -81,7 +81,8 @@ if st.button("Generate JSON"):
         label="⬇️ Download FHIR Meldung JSON",
         data=json_str,
         file_name=file_name,
-        mime="application/json"
+        mime="application/json",
+        key=f"download_{pat_id}"
     )
 
     st.json(bundle)
