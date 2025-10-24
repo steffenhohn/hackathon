@@ -13,4 +13,5 @@ class DataProductCreated(Event):
     pathogen_code: str
     pathogen_description: str
     timestamp: str  # Lab report timestamp (from FHIR bundle)
+    stored_at: datetime  # When the bundle was stored by fhir_ingestion (BundleStored event)
     created_at: datetime  # When the data product was created

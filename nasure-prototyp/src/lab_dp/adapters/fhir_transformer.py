@@ -14,13 +14,14 @@ class FHIRTransformer:
     """Transform FHIR bundles into LabDataProduct domain entities."""
 
     @staticmethod
-    def extract_lab_data_product(bundle: Dict[str, Any], bundle_id: str) -> LabDataProduct:
+    def extract_lab_data_product(bundle: Dict[str, Any], bundle_id: str, stored_at: datetime = None) -> LabDataProduct:
         """
         Extract lab surveillance data from FHIR bundle.
 
         Args:
             bundle: FHIR Bundle dictionary
             bundle_id: The bundle identifier
+            stored_at: When the bundle was stored by fhir_ingestion (optional)
 
         Returns:
             LabDataProduct domain entity
@@ -51,6 +52,7 @@ class FHIRTransformer:
                 pathogen_code=pathogen_info["code"],
                 pathogen_description=pathogen_info["description"],
                 interpretation=pathogen_info["interpretation"],
+                stored_at=stored_at,
                 version_number=1
             )
 

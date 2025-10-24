@@ -14,6 +14,7 @@ class LabDataProduct:
     pathogen_code: str
     pathogen_description: str
     interpretation: str
+    stored_at: datetime = None  # When bundle was stored by fhir_ingestion
     version_number: int = 0
     events: List = field(default_factory=list, compare=False, hash=False)
 
@@ -30,6 +31,7 @@ class LabDataProduct:
                 pathogen_code=self.pathogen_code,
                 pathogen_description=self.pathogen_description,
                 timestamp=self.timestamp,
+                stored_at=self.stored_at,
                 created_at=datetime.now(timezone.utc),
             )
         )

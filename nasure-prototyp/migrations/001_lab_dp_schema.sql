@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS metrics (
     pathogen_code VARCHAR(255),
     pathogen_description VARCHAR(255),
     report_timestamp VARCHAR(255),
+    stored_at TIMESTAMP,
     created_at TIMESTAMP
 );
 

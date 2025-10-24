@@ -44,7 +44,11 @@ def create_data_product(
 
             # Step 2: Transform FHIR bundle to domain entity
             transformer = FHIRTransformer()
-            lab_product = transformer.extract_lab_data_product(bundle_data, command.bundle_id)
+            lab_product = transformer.extract_lab_data_product(
+                bundle_data,
+                command.bundle_id,
+                stored_at=command.stored_at
+            )
             logger.info(f"Transformed bundle {command.bundle_id} to product {lab_product.product_id}")
 
             # Step 3: Call domain method to mark product as created (generates events)
@@ -91,15 +95,16 @@ def update_metrics_read_model(event, uow: AbstractUnitOfWork):
         uow.session.execute(
             text("""
                 INSERT INTO metrics
-                    (product_id, pathogen_code, pathogen_description, report_timestamp, created_at)
+                    (product_id, pathogen_code, pathogen_description, report_timestamp, stored_at, created_at)
                 VALUES
-                    (:product_id, :pathogen_code, :pathogen_description, :report_timestamp, :created_at)
+                    (:product_id, :pathogen_code, :pathogen_description, :report_timestamp, :stored_at, :created_at)
             """),
             dict(
                 product_id=event.product_id,
                 pathogen_code=event.pathogen_code,
                 pathogen_description=event.pathogen_description,
                 report_timestamp=event.timestamp,
+                stored_at=event.stored_at,
                 created_at=event.created_at,
             ),
         )

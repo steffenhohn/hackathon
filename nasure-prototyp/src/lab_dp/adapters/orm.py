@@ -42,6 +42,7 @@ metrics = Table(
     Column("pathogen_code", String(255)),
     Column("pathogen_description", String(255)),
     Column("report_timestamp", String(255)),
+    Column("stored_at", DateTime),
     Column("created_at", DateTime),
 )
 

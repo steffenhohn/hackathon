@@ -57,6 +57,7 @@ def handle_bundle_stored(m):
         data = json.loads(m["data"])
         bundle_id = data.get("bundle_id")
         bundle_type = data.get("bundle_type")
+        stored_at_str = data.get("stored_at")
 
         if not bundle_id:
             logger.error("No bundle_id in message: %s", data)
@@ -70,8 +71,12 @@ def handle_bundle_stored(m):
 
         logger.info(f"Processing BundleStored event for Laborbericht bundle {bundle_id}")
 
+        # Parse stored_at timestamp from BundleStored event
+        from datetime import datetime
+        stored_at = datetime.fromisoformat(stored_at_str.replace('Z', '+00:00')) if stored_at_str else datetime.utcnow()
+
         # Create command to process the bundle
-        cmd = commands.CreateDataProduct(bundle_id=bundle_id)
+        cmd = commands.CreateDataProduct(bundle_id=bundle_id, stored_at=stored_at)
 
         # Create unit of work and handle command
         uow = SqlAlchemyUnitOfWork()
