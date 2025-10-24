@@ -1,12 +1,14 @@
 from __future__ import annotations
-
-"""Abstract Unit of Work pattern for coordinating operations across repositories."""
-
 import abc
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm.session import Session
 
+import config
+from shared.adapters import repository
 
 class AbstractUnitOfWork(abc.ABC):
-    """Abstract Unit of Work for coordinating operations across repositories."""
+    patients: repository.AbstractRepository
 
     def __enter__(self) -> AbstractUnitOfWork:
         return self
@@ -17,10 +19,10 @@ class AbstractUnitOfWork(abc.ABC):
     def commit(self):
         self._commit()
 
-    def collect_new_events(self):
-        """Collect domain events from aggregates."""
-        # Future: collect events from domain entities
-        return []
+#    def collect_new_events(self):
+#       for patient in self.patients.seen:
+#           while patient.events:
+#                yield patient.events.pop(0)
 
     @abc.abstractmethod
     def _commit(self):
@@ -29,3 +31,30 @@ class AbstractUnitOfWork(abc.ABC):
     @abc.abstractmethod
     def rollback(self):
         raise NotImplementedError
+
+
+DEFAULT_SESSION_FACTORY = sessionmaker(
+    bind=create_engine(
+        config.get_postgres_uri(),
+        isolation_level="REPEATABLE READ",
+    )
+)
+
+class SqlAlchemyUnitOfWork(AbstractUnitOfWork):
+    def __init__(self, session_factory=DEFAULT_SESSION_FACTORY):
+        self.session_factory = session_factory
+
+    def __enter__(self):
+        self.session = self.session_factory()  # type: Session
+        self.patients = repository.SqlAlchemyRepository(self.session)
+        return super().__enter__()
+
+    def __exit__(self, *args):
+        super().__exit__(*args)
+        self.session.close()
+
+    def _commit(self):
+        self.session.commit()
+
+    def rollback(self):
+        self.session.rollback()

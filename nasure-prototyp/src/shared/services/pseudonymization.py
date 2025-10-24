@@ -1,29 +1,27 @@
 """Simple pseudonymization functions that return unique UUIDs."""
 
 from __future__ import annotations
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 from dataclasses import dataclass
 from uuid import uuid4
-from typing import Dict, Any, Tuple
 import re
-from shared.storage.patient_repository import PatientRepository, PatientRecord
+import os
+from shared.adapters import orm
+from shared.domain.domain import PatientRecord
+from shared.adapters.repository import AbstractRepository 
 import logging
 
 _AHV_DIGITS_RE = re.compile(r"\D+")
 
+log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
+logging.basicConfig(
+    level=getattr(logging, log_level),
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
-@dataclass
-class ResolvePatientCommand:
-    ahv_number: str
-    family_name: str
-    given_name: str
-    gender: str
-    birthdate: str  # 'YYYY-MM-DD'
-    canton: str
-
 class PatientService:
-    def __init__(self, repo: PatientRepository):
+    def __init__(self, repo: AbstractRepository):
         self.repo = repo
 
     def normalize_ahv(self, ahv: str) -> str:
@@ -45,18 +43,23 @@ class PatientService:
         Returns:
             Tuple of (patient_id, created)
         """
-        
+       
         # check if patient exists by AHV
         patient_data = self.extract_patient_data(patient_resource)
+        logger.info(f"Pseudonymizing patient:"f"{patient_data}")
+
         patient_id = self.repo.get_patient_id_by_ahv(patient_data["ahv_number"])
 
         if patient_id:
+            logger.info(f"Found existing patient_id: {patient_id} for AHV:"f"{patient_data['ahv_number']}")
             return patient_id, False  # existing patient
         else:
+            logger.info(f"No existing patient found for AHV:"f"{patient_data['ahv_number']}. Creating new record.")
             # create new patient
             new_patient_id = str(uuid4())
+
             new_patient = PatientRecord(
-                new_patient_id,
+                patient_id=new_patient_id,
                 ahv_number=patient_data["ahv_number"],
                 family_name=patient_data["family_name"],
                 given_name=patient_data["given_name"],
@@ -64,6 +67,7 @@ class PatientService:
                 birthdate=patient_data["birthdate"],
                 canton=patient_data["canton"],
             )
+
             pid, created = self.repo.upsert_patient_by_ahv(new_patient)
             if created:
                 return new_patient_id, True # new patient created
@@ -81,7 +85,6 @@ class PatientService:
         ahv_string = (identifier[0].get("value") or "").strip()
         ahv_number = self.normalize_ahv(ahv_string)
         if len(ahv_number) == 13 and ahv_number.isdigit():
-            logger.debug(f"Extracted AHV number: {ahv_number}")
             return ahv_number
         
         raise ValueError("AHV number not found in Patient.identifier (AHVN13).")
@@ -95,11 +98,15 @@ class PatientService:
         names = patient.get("name") or []
         if not names:
             raise ValueError("Patient.name is required.")
-        nm = names[0]
-        family_name = (nm.get("family") or "").strip()
-        given_name = (nm.get("given") or "").strip()
+        if isinstance(names, list): 
+            name = names[0]  # Take first name
+            family_name = name.get('family', '').strip()
+            given_names = name.get('given', [])
+        
+        if isinstance(given_names, list) and given_names:
+            given_name = given_names[0].strip()  # Take first given name
+               
         if family_name and given_name:
-            logger.debug(f"Extracted Patient name: {family_name}, {given_name}")
             return family_name, given_name  
         
         raise ValueError("Patient.name.family and Patient.name.given are required.")
@@ -112,7 +119,6 @@ class PatientService:
         gender = (patient.get("gender") or "").strip().lower()
         # CH ELM allows male|female|other|unknown, but your DB constraint is male/female.
         if gender: 
-            logger.debug(f"Extracted Patient gender: {gender}")
             return gender
         
         raise ValueError("Patient.gender are required.")
@@ -127,7 +133,6 @@ class PatientService:
         if not re.match(r"^\d{4}-\d{2}-\d{2}$", bd):
             raise ValueError("Patient.birthDate must be in format YYYY-MM-DD.")
         
-        logger.debug(f"Extracted Patient birthdate: {bd}")
         return bd
 
     def extract_canton(self, patient: Dict[str, Any]) -> str:
@@ -142,7 +147,6 @@ class PatientService:
         if not canton:
             raise ValueError("Patient.address.home.state (canton) is required.")
         
-        logger.debug(f"Extracted Patient canton: {canton}")
         return canton
 
     def extract_patient_data(self, patient: Dict[str, Any]) -> dict:

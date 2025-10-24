@@ -11,6 +11,11 @@ services:
       - "5432:5432"
     volumes:
       - ./migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lab_dp_user -d lab_dp_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
@@ -83,3 +88,21 @@ services:
     command: pytest tests/ -v
     profiles:
       - test
+
+  patient-service-api:
+    build: .
+    ports:
+      - "8001:8001"  # Host port 8001, container port 8001
+    environment:
+      DB_HOST: postgres
+      DB_USER: lab_dp_user
+      DB_PASSWORD: lab_dp_pass
+      DB_NAME: lab_dp_db
+      LOG_LEVEL: DEBUG  # Set log level to DEBUG
+    depends_on:
+      postgres:
+        condition: service_healthy  # Wait for postgres to be healthy    
+    volumes:
+      - ./src:/app/src
+    command: uvicorn shared.entrypoints.patient_service_api:app --host=0.0.0.0 --port=8001
+    restart: unless-stopped
