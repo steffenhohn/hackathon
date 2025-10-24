@@ -13,6 +13,14 @@ from faker import Faker
 # Initialize Faker with Swiss locale for realistic data
 fake = Faker(['de_CH', 'fr_CH', 'it_CH'])
 
+# Mapping of LOINC codes to pathogen descriptions
+# Based on CH-eLM implementation guide
+PATHOGEN_CODE_TO_DESCRIPTION = {
+    "31726-3": "Bacillus anthracis [Presence] in Specimen by Organism specific culture",
+    "32781-7": "Legionella pneumophila [Presence] in Specimen by Organism specific culture",
+    "70568-1": "Plasmodium sp identified in Blood by Light microscopy"
+}
+
 
 def randomize_patient_data(bundle: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -263,6 +271,35 @@ def randomize_practitioner_data(bundle: Dict[str, Any]) -> Dict[str, Any]:
     return bundle
 
 
+def ensure_pathogen_descriptions(bundle: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Ensure pathogen codes have correct display/description fields.
+
+    Args:
+        bundle: FHIR Bundle dictionary
+
+    Returns:
+        Modified bundle with correct pathogen descriptions
+    """
+    bundle = copy.deepcopy(bundle)
+
+    for entry in bundle.get("entry", []):
+        resource = entry.get("resource", {})
+
+        if resource.get("resourceType") == "Observation":
+            code_obj = resource.get("code", {})
+            coding = code_obj.get("coding", [])
+
+            for code_entry in coding:
+                if code_entry.get("system") == "http://loinc.org":
+                    pathogen_code = code_entry.get("code")
+                    if pathogen_code in PATHOGEN_CODE_TO_DESCRIPTION:
+                        # Add/update the display field with correct description
+                        code_entry["display"] = PATHOGEN_CODE_TO_DESCRIPTION[pathogen_code]
+
+    return bundle
+
+
 def randomize_bundle(bundle: Dict[str, Any],
                     randomize_time: bool = True,
                     days_ago_min: int = 0,
@@ -288,6 +325,7 @@ def randomize_bundle(bundle: Dict[str, Any],
     bundle = randomize_patient_data(bundle)
     bundle = randomize_organization_data(bundle)
     bundle = randomize_practitioner_data(bundle)
+    bundle = ensure_pathogen_descriptions(bundle)
 
     if randomize_time:
         bundle = randomize_timestamps(bundle, days_ago_min, days_ago_max)

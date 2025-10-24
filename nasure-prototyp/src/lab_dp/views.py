@@ -70,6 +70,56 @@ def get_quality_metrics(uow: AbstractUnitOfWork) -> Dict[str, Any]:
         }
 
 
+def get_all_data_products(
+    uow: AbstractUnitOfWork,
+    limit: int = 100,
+    offset: int = 0
+) -> Dict[str, Any]:
+    """
+    Get all data products with pagination.
+
+    Following CQRS pattern: queries products table directly for reads.
+
+    Args:
+        uow: Unit of work
+        limit: Maximum number of products to return
+        offset: Number of products to skip
+
+    Returns:
+        List of all data products with pagination info
+    """
+    with uow:
+        session = uow.session
+
+        # Get total count
+        total = session.execute(
+            text("SELECT COUNT(*) FROM products")
+        ).scalar()
+
+        # Get paginated results
+        results = session.execute(
+            text("""
+                SELECT product_id, patient_id, bundle_id, timestamp,
+                       pathogen_code, pathogen_description, interpretation, version_number
+                FROM products
+                ORDER BY timestamp DESC
+                LIMIT :limit OFFSET :offset
+            """),
+            dict(limit=limit, offset=offset)
+        )
+
+        # Serialize to dicts inside session context (Cosmic Python pattern)
+        products = [dict(row._mapping) for row in results]
+
+    return {
+        "total": total or 0,
+        "limit": limit,
+        "offset": offset,
+        "count": len(products),
+        "data_products": products
+    }
+
+
 def get_pathogen_count_last_24h(
     pathogen_code: str,
     uow: AbstractUnitOfWork
@@ -104,3 +154,126 @@ def get_pathogen_count_last_24h(
             "time_window_hours": 24,
             "queried_at": datetime.utcnow().isoformat(),
         }
+
+
+def get_data_products_by_pathogen(
+    pathogen_code: str,
+    uow: AbstractUnitOfWork,
+    limit: int = 100,
+    offset: int = 0
+) -> Dict[str, Any]:
+    """
+    Get all data products for a specific pathogen.
+
+    Following CQRS pattern: queries products table directly for reads.
+
+    Args:
+        pathogen_code: Pathogen code to filter by
+        uow: Unit of work
+        limit: Maximum number of products to return
+        offset: Number of products to skip
+
+    Returns:
+        List of data products with pagination info
+    """
+    with uow:
+        session = uow.session
+
+        # Get total count
+        total = session.execute(
+            text("""
+                SELECT COUNT(*)
+                FROM products
+                WHERE pathogen_code = :pathogen_code
+            """),
+            dict(pathogen_code=pathogen_code)
+        ).scalar()
+
+        # Get paginated results
+        results = session.execute(
+            text("""
+                SELECT product_id, patient_id, bundle_id, timestamp,
+                       pathogen_code, pathogen_description, interpretation, version_number
+                FROM products
+                WHERE pathogen_code = :pathogen_code
+                ORDER BY timestamp DESC
+                LIMIT :limit OFFSET :offset
+            """),
+            dict(pathogen_code=pathogen_code, limit=limit, offset=offset)
+        )
+
+        # Serialize to dicts inside session context (Cosmic Python pattern)
+        products = [dict(row._mapping) for row in results]
+
+    return {
+        "pathogen_code": pathogen_code,
+        "total": total or 0,
+        "limit": limit,
+        "offset": offset,
+        "count": len(products),
+        "data_products": products
+    }
+
+
+def get_data_products_by_patient_and_pathogen(
+    patient_id: str,
+    pathogen_code: str,
+    uow: AbstractUnitOfWork,
+    limit: int = 100,
+    offset: int = 0
+) -> Dict[str, Any]:
+    """
+    Get all data products for a specific patient and pathogen.
+
+    Following CQRS pattern: queries products table directly for reads.
+
+    Args:
+        patient_id: Patient ID to filter by
+        pathogen_code: Pathogen code to filter by
+        uow: Unit of work
+        limit: Maximum number of products to return
+        offset: Number of products to skip
+
+    Returns:
+        List of data products with pagination info
+    """
+    with uow:
+        session = uow.session
+
+        # Get total count
+        total = session.execute(
+            text("""
+                SELECT COUNT(*)
+                FROM products
+                WHERE patient_id = :patient_id
+                  AND pathogen_code = :pathogen_code
+            """),
+            dict(patient_id=patient_id, pathogen_code=pathogen_code)
+        ).scalar()
+
+        # Get paginated results
+        results = session.execute(
+            text("""
+                SELECT product_id, patient_id, bundle_id, timestamp,
+                       pathogen_code, pathogen_description, interpretation, version_number
+                FROM products
+                WHERE patient_id = :patient_id
+                  AND pathogen_code = :pathogen_code
+                ORDER BY timestamp DESC
+                LIMIT :limit OFFSET :offset
+            """),
+            dict(patient_id=patient_id, pathogen_code=pathogen_code, limit=limit, offset=offset)
+        )
+
+        # Serialize to dicts inside session context (Cosmic Python pattern)
+        products = [dict(row._mapping) for row in results]
+
+    return {
+        "patient_id": patient_id,
+        "pathogen_code": pathogen_code,
+        "total": total or 0,
+        "limit": limit,
+        "offset": offset,
+        "count": len(products),
+        "data_products": products
+    }
