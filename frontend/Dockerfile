@@ -22,8 +22,8 @@ RUN rm -rf ./*
 # ✅ Copy build result from previous stage
 COPY --from=build /app/dist/ /usr/share/nginx/html/
 
-# Optional: replace default nginx config
-# COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Replace default nginx config
+# COPY --from=build /app/nginx/default.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

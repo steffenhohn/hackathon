@@ -98,6 +98,21 @@ Finally
 
     minikube delete
 
+    // image neu bauen mit linux/amd64
+    docker buildx create --use --name amd64builder
+    docker buildx build --platform linux/amd64 -t jacktheconsultant/backend-app:latest . --push
+
+    // Multi-Arch Image bauen
+    docker buildx build --platform linux/amd64,linux/arm64 -t jacktheconsultant/backend-app:latest . --push
+
+    Um die Architektur eines bestehenden Images zu prüfen
+    docker buildx imagetools inspect jacktheconsultant/backend-app:latest
+
+az containerapp update \
+--name frontend-app \
+--resource-group hackathon \
+--image docker.io/jacktheconsultant/frontend-app:latest
+
 NodePort:
 
 frontend-service:
@@ -114,3 +129,13 @@ ports:
 port: 80
 targetPort: 80
 type: NodePort
+
+  
+index.docker.io
+jacktheconsultant/backend-app:latest
+jacktheconsultant/frontend-app:latest
+
+az containerapp update \     
+--name frontend-app \
+--resource-group hackathon \
+--image docker.io/jacktheconsultant/frontend-app:latest
