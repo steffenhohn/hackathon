@@ -127,5 +127,26 @@ services:
     command: uvicorn shared.entrypoints.patient_service_api:app --host=0.0.0.0 --port=8002
     restart: unless-stopped
 
+  case-mgmt-api:
+    build: .
+    ports:
+      - "8003:8003"
+    environment:
+      DB_HOST: postgres
+      DB_USER: lab_dp_user
+      DB_PASSWORD: lab_dp_pass
+      DB_NAME: lab_dp_db
+      LOG_LEVEL: DEBUG
+    depends_on:
+      postgres:
+        condition: service_healthy
+      patient-service-api:
+        condition: service_started        
+    volumes:
+      - ./src:/app/src
+    command: uvicorn case.entrypoints.case_api:app --host=0.0.0.0 --port=8003 --reload
+    restart: unless-stopped
+
 volumes:
   grafana_data:
+
