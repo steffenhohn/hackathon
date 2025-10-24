@@ -11,6 +11,11 @@ services:
       - "5432:5432"
     volumes:
       - ./migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lab_dp_user -d lab_dp_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
@@ -45,6 +50,24 @@ services:
       - ./scripts:/app/scripts
     command: uvicorn fhir_ingestion.entrypoints.fhir_api:app --host=0.0.0.0 --port=8000
 
+  lab-dp-consumer:
+    build: .
+    environment:
+      REDIS_HOST: redis
+      DB_HOST: postgres
+      DB_USER: lab_dp_user
+      DB_PASSWORD: lab_dp_pass
+      DB_NAME: lab_dp_db
+      API_HOST: fhir-api
+    depends_on:
+      - redis
+      - postgres
+      - fhir-api
+    volumes:
+      - ./src:/app/src
+    command: python3 -m lab_dp.entrypoints.redis_eventconsumer
+    restart: unless-stopped
+
   tests:
     build: .
     environment:
@@ -65,3 +88,21 @@ services:
     command: pytest tests/ -v
     profiles:
       - test
+
+  patient-service-api:
+    build: .
+    ports:
+      - "8002:8002"  # Host port 8002, container port 8002
+    environment:
+      DB_HOST: postgres
+      DB_USER: lab_dp_user
+      DB_PASSWORD: lab_dp_pass
+      DB_NAME: lab_dp_db
+      LOG_LEVEL: DEBUG  # Set log level to DEBUG
+    depends_on:
+      postgres:
+        condition: service_healthy  # Wait for postgres to be healthy    
+    volumes:
+      - ./src:/app/src
+    command: uvicorn shared.entrypoints.patient_service_api:app --host=0.0.0.0 --port=8002
+    restart: unless-stopped

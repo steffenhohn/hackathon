@@ -1,0 +1,70 @@
+import logging
+
+from lab_dp.domain.commands import CreateDataProduct
+from lab_dp.service_layer.unit_of_work import AbstractUnitOfWork
+from lab_dp.adapters.fhir_client import FHIRClientError
+from lab_dp.adapters.fhir_transformer import FHIRTransformer, FHIRTransformationError
+
+logger = logging.getLogger(__name__)
+
+
+def create_data_product(
+    command: CreateDataProduct,
+    uow: AbstractUnitOfWork
+) -> str:
+    """
+    Create lab data product from stored FHIR bundle.
+
+    Flow:
+    1. Fetch FHIR bundle from fhir_ingestion service via API
+    2. Transform bundle to LabDataProduct domain entity
+    3. Store product in database via repository
+    4. Commit transaction
+
+    Args:
+        command: CreateDataProduct command with bundle_id
+        uow: Unit of work for transaction management (includes fhir_client)
+
+    Returns:
+        product_id: The ID of the created data product
+
+    Raises:
+        FHIRClientError: If bundle cannot be fetched
+        FHIRTransformationError: If bundle cannot be transformed
+    """
+    logger.info(f"Processing CreateDataProduct command for bundle {command.bundle_id}")
+
+    try:
+        # Initialize UoW to get access to fhir_client (but outside transaction)
+        with uow:
+            # Step 1: Fetch FHIR bundle from ingestion service
+            bundle_data = uow.fhir_client.get_bundle(command.bundle_id)
+            logger.info(f"Fetched bundle {command.bundle_id} from FHIR ingestion service")
+
+            # Step 2: Transform FHIR bundle to domain entity
+            transformer = FHIRTransformer()
+            lab_product = transformer.extract_lab_data_product(bundle_data, command.bundle_id)
+            logger.info(f"Transformed bundle {command.bundle_id} to product {lab_product.product_id}")
+
+            # Step 3: Store product via repository - returns product_id (Cosmic Python pattern)
+            product_id = uow.products.add(lab_product)
+            logger.info(f"Added product {product_id} to repository")
+
+            # Commit transaction
+            uow.commit()
+            logger.info(f"Committed product {product_id} to database")
+
+        logger.info(f"Successfully created data product {product_id} from bundle {command.bundle_id}")
+        return product_id
+
+    except FHIRClientError as e:
+        logger.error(f"Failed to fetch bundle {command.bundle_id}: {e}")
+        raise
+
+    except FHIRTransformationError as e:
+        logger.error(f"Failed to transform bundle {command.bundle_id}: {e}")
+        raise
+
+    except Exception as e:
+        logger.error(f"Unexpected error processing bundle {command.bundle_id}: {e}")
+        raise

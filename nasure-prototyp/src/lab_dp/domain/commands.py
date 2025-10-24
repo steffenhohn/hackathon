@@ -6,7 +6,6 @@ from shared.domain.commands import Command
 
 
 @dataclass
-class GenerateDataProduct(Command):
+class CreateDataProduct(Command):
     """Command to generate surveillance data product from stored FHIR bundle."""
     bundle_id: str
-    object_key: str

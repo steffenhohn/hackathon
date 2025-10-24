@@ -94,3 +94,47 @@ def clean_minio():
     objects = client.list_objects(bucket_name, recursive=True)
     for obj in objects:
         client.remove_object(bucket_name, obj.object_name)
+
+
+@pytest.fixture
+def lab_dp_postgres_session():
+    """Provide a clean PostgreSQL session for lab_dp tests"""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker, clear_mappers
+    from lab_dp.adapters import orm
+
+    # Use test database
+    engine = create_engine("postgresql://lab_dp_user:lab_dp_pass@localhost:5433/lab_dp_test_db")
+    orm.metadata.create_all(engine)
+    orm.start_mappers()
+
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    yield session
+
+    session.close()
+    clear_mappers()
+    orm.metadata.drop_all(engine)
+
+
+@pytest.fixture
+def fake_fhir_client():
+    """Provide a fake FHIR client for testing without HTTP calls"""
+    from lab_dp.adapters.fhir_client import AbstractFHIRClient
+
+    class FakeFHIRClient(AbstractFHIRClient):
+        def __init__(self):
+            self.bundles = {}
+
+        def add_bundle(self, bundle_id: str, bundle_data: dict):
+            """Pre-populate the fake client with bundle data"""
+            self.bundles[bundle_id] = bundle_data
+
+        def get_bundle(self, bundle_id: str) -> dict:
+            if bundle_id not in self.bundles:
+                from lab_dp.adapters.fhir_client import FHIRClientError
+                raise FHIRClientError(f"Bundle {bundle_id} not found")
+            return self.bundles[bundle_id]
+
+    return FakeFHIRClient()
