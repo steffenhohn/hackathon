@@ -8,6 +8,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, RootModel
 import logging
 import os
+from datetime import datetime, timezone
 from shared.service_layer.unit_of_work import SqlAlchemyUnitOfWork
 from shared.adapters import orm
 from shared.services.pseudonymization import PatientService
@@ -60,34 +61,37 @@ class FHIRPatient(RootModel[Dict[str, Any]]):
     Using RootModel keeps this decoupled from a full FHIR model for now.
     You can tighten this later with pydantic-fhir if desired.
     """
-    pass
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "resourceType": "Patient",
+                "identifier": [
+                    {"value": "7561234567890"}
+                ],
+                "name": [
+                    {"family": "Doe", "given": ["John"]}
+                ],
+                "gender": "male",
+                "birthDate": "1990-01-01",
+                "address": [
+                    {"state": "ZH"}
+                ]
+            }
+        }
+    }
 
 
 # ---------- Endpoints ----------
 
-@app.get("/api/v1/patient/ahv/{ahv_number}", response_model=ResolveResponse, summary="Lookup patient_id by AHV number")
-def get_patient_id_by_ahv(ahv_number: str):
-    """
-    Lookup if patient exists with given AHV number and return patient_id.
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {
+        "status": "healthy",
+        "service": "patient-service-api",
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
 
-    """
-    try:
-        
-        with SqlAlchemyUnitOfWork() as uow:
-            # Lookup patient by AHV number
-            patient_id = uow.patients.get_patient_id_by_ahv(ahv_number)
-            
-            if not patient_id:
-                raise HTTPException(status_code=404, detail="No patient found for given AHV")
-                
-            return ResolveResponse(patient_id=patient_id)
-            
-    except HTTPException:
-        raise  # Re-raise HTTP exceptions
-    except Exception as e:
-        logger.error(f"Error looking up patient with AHV {ahv_number}: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")  
-    
 @app.post("/api/v1/patient/pseudonymize", response_model=ResolveResponse, summary="Pseudonymize patient from FHIR resource")
 def pseudonymize_patient(fhir_patient: FHIRPatient):
     """
@@ -113,16 +117,39 @@ def pseudonymize_patient(fhir_patient: FHIRPatient):
                 logger.info(f"Found existing patient with ID: {patient_id}")
             
             return ResolveResponse(patient_id=patient_id)
-            
     except ValueError as e:
         # Handle validation errors from patient service
-        logger.error(f"Validation error resolving patient: {e}")
+        logger.error(f"Validation error pseudonymizing patient: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
         raise  # Re-raise HTTP exceptions
     except Exception as e:
-        logger.error(f"Error resolving patient: {e}")
+        logger.error(f"Error pseudonymizing patient: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@app.get("/api/v1/patient/ahv/{ahv_number}", response_model=ResolveResponse, summary="Lookup patient_id by AHV number")
+def get_patient_id_by_ahv(ahv_number: str):
+    """
+    Lookup if patient exists with given AHV number and return patient_id.
+
+    """
+    try:
+        
+        with SqlAlchemyUnitOfWork() as uow:
+            # Lookup patient by AHV number
+            patient_id = uow.patients.get_patient_id_by_ahv(ahv_number)
+            
+            if not patient_id:
+                raise HTTPException(status_code=404, detail="No patient found for given AHV")
+                
+            return ResolveResponse(patient_id=patient_id)
+            
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions
+    except Exception as e:
+        logger.error(f"Error looking up patient with AHV {ahv_number}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")  
     
 @app.get("/api/v1/patient/{patient_id}", response_model=PatientDetailsResponse, summary="Get patient details by patient_id")
 def get_patient_by_id(patient_id: str):
