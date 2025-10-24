@@ -450,3 +450,17 @@ make test
 # Check storage status
 ./scripts/check_storage.sh
 ```
+
+### Test Patient Service
+
+```bash
+curl -X POST "http://localhost:8001/api/v1/patient/pseudonymize" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "resourceType": "Patient",
+    "identifier": [{"value": "7561234567890"}],
+    "name": [{"family": "Doe", "given": ["John"]}],
+    "gender": "male",
+    "birthDate": "1990-01-01",
+    "address": [{"state": "ZH"}]
+  }'```

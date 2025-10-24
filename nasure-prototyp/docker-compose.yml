@@ -11,6 +11,11 @@ services:
       - "5432:5432"
     volumes:
       - ./migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lab_dp_user -d lab_dp_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
@@ -84,6 +89,8 @@ services:
       - postgres
     volumes:
       - ./src:/app/src
+      - ./tests:/app/tests
+      - ./scripts:/app/scripts
     command: uvicorn lab_dp.entrypoints.lab_api:app --host=0.0.0.0 --port=8001
     restart: unless-stopped
 
@@ -100,6 +107,24 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning
     depends_on:
       - lab-dp-api
+    restart: unless-stopped
+
+  patient-service-api:
+    build: .
+    ports:
+      - "8002:8002"
+    environment:
+      DB_HOST: postgres
+      DB_USER: lab_dp_user
+      DB_PASSWORD: lab_dp_pass
+      DB_NAME: lab_dp_db
+      LOG_LEVEL: DEBUG
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src
+    command: uvicorn shared.entrypoints.patient_service_api:app --host=0.0.0.0 --port=8002
     restart: unless-stopped
 
 volumes:
