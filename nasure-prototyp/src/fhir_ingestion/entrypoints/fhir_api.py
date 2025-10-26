@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from typing import Dict, Any
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 import logging
 
@@ -32,6 +33,21 @@ class IngestionResponse(BaseModel):
     message: str
     received_at: str
 
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    return """
+    <html>
+        <head><title>FHIR Ingestion Service</title></head>
+        <body>
+            <h1>🏥 FHIR Ingestion Service</h1>
+            <ul>
+                <li><a href="/docs">📚 API Documentation</a></li>
+                <li><a href="http://localhost:8010" target="_blank">🎨 Bundle Generator</a></li>
+                <li><a href="/health">💓 Health Check</a></li>
+            </ul>
+        </body>
+    </html>
+    """
 
 @app.get("/health")
 async def health_check():

@@ -87,7 +87,7 @@ def handle_data_product_created(m):
             patient_id=patient_id,
             pathogen_code=pathogen_code,
             pathogen_description=pathogen_description,
-            timestamp=timestamp,
+            lab_timestamp=timestamp,
             stored_at=stored_at,
             created_at=created_at
         )
