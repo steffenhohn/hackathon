@@ -1,17 +1,27 @@
 """
 Case API Entrypoint - Thin API with Command Dispatch
 """
-import config
 from typing import Dict, Any, List
 from sqlalchemy import create_engine
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, RootModel
+from fastapi import FastAPI, HTTPException, Query
+from typing import Optional
+from pydantic import BaseModel
 import logging
-import os
+import config
 from datetime import datetime, timezone
 from case.service_layer.unit_of_work import SqlAlchemyUnitOfWork
 from case.adapters import orm
+from case.domain import commands
+from case.service_layer import handlers,messagebus
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler()  # This sends logs to stdout/stderr
+    ]
+)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
@@ -30,72 +40,50 @@ async def startup_event():
 
 # ---------- Request/Response models ----------
 
-class ResolveRequest(BaseModel):
-    ahv_number: str
-    family_name: str
-    given_name: str
-    gender: str
-    birthdate: str   # YYYY-MM-DD
-    canton: str
-
-class ResolveResponse(BaseModel):
-    case_id: str
-
-class PatientDetailsResponse(BaseModel):
-    ahv_number: str
-    family_name: str
-    given_name: str
-    gender: str
-    birthdate: str
-    canton: str
-
-
-# Add this response model with your other models
 class CaseResponse(BaseModel):
     case_id: str
     patient_id: str
-    case_date: str
+    pathogen_code: str
+    pathogen_description: str
+    lab_timestamp: datetime
+    created_at: datetime
     case_class: str  
-    case_status: str
-    pathogen: str
+    status: str
     canton: str
 
-class CasesListResponse(BaseModel):
+class PaginatedCasesResponse(BaseModel):
     cases: List[CaseResponse]
     total_count: int
+    page: int
+    page_size: int
+    total_pages: int
+    has_next: bool
+    has_previous: bool
 
-# Add this request model with your other models
 class CreateCaseRequest(BaseModel):
+    product_id: str
     patient_id: str
-    case_date: str           # YYYY-MM-DD format
-    case_class: str          # e.g., "confirmed", "suspected", "probable"
-    case_status: str         # e.g., "active", "recovered", "deceased"
-    pathogen: str            # e.g., "COVID-19", "Influenza A", etc.
-    canton: str              # 2-letter canton code
-    
+    pathogen_code: str
+    pathogen_description: str
+    lab_timestamp: datetime     # Lab report timestamp (from FHIR bundle)
+    canton: str                 # 2-letter canton code
+
     model_config = {
         "json_schema_extra": {
             "example": {
+                "product_id": "0760c467-25b9-42d3-87b1-5658c02e5a9b",
                 "patient_id": "123e4567-e89b-12d3-a456-426614174000",
-                "case_date": "2024-10-24",
-                "case_class": "confirmed", 
-                "case_status": "active",
-                "pathogen": "COVID-19",
-                "canton": "ZH"
+                "pathogen_code": "32781-7",
+                "pathogen_description": "Legionella pneumophila [Presence] in Specimen by Organism specific culture",
+                "lab_timestamp": "2024-10-24T10:30:00Z",              
+                "canton": "BE"
             }
         }
     }
 
-class CreateCaseResponse(BaseModel):
-    case_id: str
-    patient_id: str
-    case_date: str
-    case_class: str
-    case_status: str
-    pathogen: str
-    canton: str
-    created: bool
-
+class CaseCreatedResponse(BaseModel):
+    case: CaseResponse  # Details of the created or updated case
+    created: bool       # Was case newly created or existing one updated
 
 # ---------- Endpoints ----------
 
@@ -107,6 +95,80 @@ async def health_check():
         "service": "case-mgmt-api",
         "timestamp": datetime.now(timezone.utc).isoformat()
     }
+
+
+@app.get("/api/v1/cases", response_model=PaginatedCasesResponse, summary="Get cases with pagination and filtering")
+def get_all_cases(
+    page_size: int = Query(20, ge=1, le=100, description="Number of cases per page"),
+    page: int = Query(1, ge=1, description="Page offset (starting from 1)"),
+    status: Optional[str] = Query("not_closed", description="Filter by case status. Use 'all' for no filter"),
+    patient_id: Optional[str] = Query(None, description="Filter by patient ID"),
+    pathogen_code: Optional[str] = Query(None, description="Filter by pathogen code"),
+    canton: Optional[str] = Query(None, description="Filter by canton"),
+):
+    """
+    Retrieve all cases with pagination and optional filtering.
+    
+    Args:
+        page_size: Number of cases per page (max 100)
+        page: Page offset (starting from 1)
+        status: Filter by case status. Default: 'not_closed' (excludes 'closed', 'archived'), use 'all' for no filter
+        patient_id: Filter by patient ID (optional)
+        pathogen_code: Filter by pathogen code (optional)
+        canton: Filter by canton (optional)     
+        
+    Returns:
+        Paginated list of cases with metadata
+    """
+    try:
+        logger.info(f"Fetching cases: page={page}, page_size={page_size}, case status={status}")
+        
+        with SqlAlchemyUnitOfWork() as uow:
+            # Get cases from repository with filters and pagination
+            cases, total_count = uow.cases.get_all_cases_paginated(
+                page_size=page_size,
+                page=page,
+                status_filter=status,
+                patient_id_filter=patient_id,
+                pathogen_code_filter=pathogen_code,
+                canton_filter=canton
+            )
+            
+            # Convert to response format
+            case_responses = [
+                CaseResponse(
+                    case_id=case.case_id,
+                    patient_id=case.patient_id,
+                    pathogen_code=case.pathogen_code,
+                    pathogen_description=case.pathogen_description,
+                    lab_timestamp=case.lab_timestamp,
+                    created_at=case.created_at,
+                    case_class=case.case_class,
+                    status=case.status,
+                    canton=case.canton
+                )
+                for case in cases
+            ]
+            
+            # Calculate pagination metadata
+            total_pages = (total_count + page_size - 1) // page_size  # Ceiling division
+            has_next = page < total_pages
+            has_previous = page > 1
+            
+            return PaginatedCasesResponse(
+                cases=case_responses,
+                total_count=total_count,
+                page_size=page_size,
+                page=page,
+                total_pages=total_pages,
+                has_next=has_next,
+                has_previous=has_previous
+            )
+            
+    except Exception as e:
+        logger.error(f"Error retrieving cases: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
 
 @app.get("/api/v1/cases/{case_id}", response_model=CaseResponse, summary="Get case by case_id")
 def get_case_by_id(case_id: str):
@@ -133,64 +195,22 @@ def get_case_by_id(case_id: str):
             return CaseResponse(
                 case_id=case.case_id,
                 patient_id=case.patient_id,
-                case_date=case.case_date,
+                pathogen_code=case.pathogen_code,
+                pathogen_description=case.pathogen_description,
+                lab_timestamp=case.lab_timestamp,
+                created_at=case.created_at,
                 case_class=case.case_class,
-                case_status=case.case_status,
-                pathogen=case.pathogen,
+                status=case.status,
                 canton=case.canton
             )
-            
+
     except HTTPException:
         raise  # Re-raise HTTP exceptions
     except Exception as e:
         logger.error(f"Error retrieving case {case_id}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
-@app.get("/api/v1/cases/patient/{patient_id}/pathogen/{pathogen}", response_model=CasesListResponse, summary="Get cases by patient and pathogen")
-def get_cases_by_patient_and_pathogen(patient_id: str, pathogen: str):
-    """
-    Get all cases for a specific patient and pathogen.
-    
-    Args:
-        patient_id: The patient's unique identifier
-        pathogen: The pathogen code to filter by
-        
-    Returns:
-        List of cases matching the patient and pathogen criteria
-    """
-    try:
-        with SqlAlchemyUnitOfWork() as uow:
-            # Get cases from repository
-            cases = uow.cases.get_cases_by_patient_and_pathogen(patient_id, pathogen)
-            
-            if not cases:
-                return CasesListResponse(cases=[], total_count=0)
-            
-            # Convert to response format
-            case_responses = [
-                CaseResponse(
-                    case_id=case.case_id,
-                    patient_id=case.patient_id,
-                    case_date=case.case_date,
-                    case_class=case.case_class,
-                    case_status=case.case_status,
-                    pathogen=case.pathogen,
-                    canton=case.canton
-                )
-                for case in cases
-            ]
-            
-            return CasesListResponse(
-                cases=case_responses,
-                total_count=len(case_responses)
-            )
-            
-    except Exception as e:
-        logger.error(f"Error retrieving cases for patient {patient_id} and pathogen {pathogen}: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
-
-
-@app.post("/api/v1/cases", response_model=CreateCaseResponse, summary="Create a new case")
+@app.post("/api/v1/cases", response_model=CaseCreatedResponse, summary="Create new or upsert existing case based on report data")
 def create_case(case_request: CreateCaseRequest):
     """
     Create a new case record.
@@ -199,47 +219,72 @@ def create_case(case_request: CreateCaseRequest):
         case_request: Case data including patient_id, case details, pathogen, etc.
         
     Returns:
-        Created case with generated case_id
+        Created case and information whether it was newly created or updated
     """
     try:
         logger.info(f"Creating new case for patient {case_request.patient_id}")
         
+        # Create command
+        lab_timestamp = case_request.lab_timestamp
+        if lab_timestamp.tzinfo is None:
+            # If naive datetime, assume it's UTC
+            lab_timestamp = lab_timestamp.replace(tzinfo=timezone.utc)
+        
+        cmd = commands.CreateCaseFromDataProduct(
+            product_id=case_request.product_id,
+            patient_id=case_request.patient_id,
+            pathogen_code=case_request.pathogen_code,
+            pathogen_description=case_request.pathogen_description,
+            lab_timestamp=lab_timestamp,
+            stored_at=datetime.now(timezone.utc),
+            created_at=datetime.now(timezone.utc),
+            canton=case_request.canton
+        )
+        
+        # Delegate to message bus
         with SqlAlchemyUnitOfWork() as uow:
-            # Use case service to create new case
-            case_service = CaseService(uow.cases)
-            case_id, created = case_service.create_case(
-                patient_id=case_request.patient_id,
-                case_date=case_request.case_date,
-                case_class=case_request.case_class,
-                case_status=case_request.case_status,
-                pathogen=case_request.pathogen,
-                canton=case_request.canton
+            results = messagebus.handle(cmd, uow)
+
+            if not results or len(results) == 0:
+                raise ValueError("Handler did not return expected results")
+
+            result = results[0]
+            if isinstance(result, tuple) and len(result) == 2:
+                case_id, created = result
+
+                logger.info(f"DEBUG: Case created with ID: {case_id}, created: {created}")
+
+            else:
+                raise ValueError("Handler returned unexpected format")
+
+            # Retrieve the case to return full details
+            logger.info("Before uow.cases.get")
+            case = uow.cases.get(case_id)
+            logger.info(f"After uow.cases.get, case: {case}, type: {type(case)}")
+            if not case:
+                raise ValueError(f"Case with ID {case_id} not found after creation")
+
+            # Convert to response format
+            case_response = CaseResponse(
+                case_id=case.case_id,
+                patient_id=case.patient_id,
+                pathogen_code=case.pathogen_code,
+                pathogen_description=case.pathogen_description,
+                lab_timestamp=case.lab_timestamp,
+                created_at=case.created_at,
+                case_class=case.case_class,
+                status=case.status,
+                canton=case.canton
             )
             
-            if created:
-                uow.commit()
-                logger.info(f"Created new case with ID: {case_id}")
-                
-                return CreateCaseResponse(
-                    case_id=case_id,
-                    patient_id=case_request.patient_id,
-                    case_date=case_request.case_date,
-                    case_class=case_request.case_class,
-                    case_status=case_request.case_status,
-                    pathogen=case_request.pathogen,
-                    canton=case_request.canton,
-                    created=True
-                )
-            else:
-                raise HTTPException(status_code=500, detail="Failed to create case")
-                
-    except HTTPException:
-        raise  # Re-raise HTTP exceptions
+            return CaseCreatedResponse(
+                case=case_response,
+                created=created
+            )
+
     except ValueError as e:
         logger.error(f"Validation error creating case: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error creating case: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
-
-

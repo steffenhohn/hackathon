@@ -120,6 +120,40 @@
 
 ```
 
+### Events
+
+```bash
+# fhir_ingestion/domain/events
+class BundleStored(Event):
+    """Event raised when a FHIR bundle has been successfully stored in MinIO."""
+    bundle_id: str
+    object_key: str
+    bundle_type: str
+    source_system: str
+    stored_at: datetime
+    bundle_size: int = 0
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+# lab_dp/domain/events
+class DataProductCreated(Event):
+    """Event raised when a lab data product has been successfully created."""
+    product_id: str
+    patient_id: str
+    pathogen_code: str
+    pathogen_description: str
+    timestamp: str  # Lab report timestamp (from FHIR bundle)
+    stored_at: datetime  # When the bundle was stored by fhir_ingestion (BundleStored event)
+    created_at: datetime  # When the data product was created
+
+# case/domain/events
+class CaseCreated(Event):
+    """Event raised when a case has been successfully created."""
+    case_id: str            # UUID4 as String
+    created_at: datetime    # Timestamp of case creation
+
+# patient service: no events published, because it operates synchronously
+
+
 ## 🚀 Getting Started
 
 ### Prerequisites

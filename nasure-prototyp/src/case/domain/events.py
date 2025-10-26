@@ -9,5 +9,6 @@ from shared.domain.commands import Event
 @dataclass
 class CaseCreated(Event):
     """Event raised when a case has been successfully created."""
-    case_id: str
+    case_id: str            # UUID4 as String
+    created_at: datetime    # Timestamp of case creation
     

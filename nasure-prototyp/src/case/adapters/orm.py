@@ -6,6 +6,7 @@ from sqlalchemy import (
     Integer,
     String,
     Date,
+    DateTime,
     ForeignKey,
     event,
 )
@@ -21,12 +22,14 @@ metadata = mapper_registry.metadata
 cases = Table(
     "cases",
     metadata,
-    Column("case_id", Integer, primary_key=True, autoincrement=True),
+    Column("case_id", String(255), primary_key=True, autoincrement=False),
     Column("patient_id", String(255), nullable=False),
-    Column("case_date", String(255)),
+    Column("pathogen_code", String(255)),
+    Column("pathogen_description", String(255)),
+    Column("lab_timestamp", DateTime),
+    Column("created_at", DateTime),
     Column("case_class", String(255)),
-    Column("case_status", String(255)),
-    Column("pathogen", String(255)),
+    Column("status", String(255)),
     Column("canton", String(2)),
 )
 

@@ -51,10 +51,17 @@ class SqlAlchemyUnitOfWork(AbstractUnitOfWork):
 
     def __exit__(self, *args):
         super().__exit__(*args)
-        self.session.close()
+        if args[0] is not None:  # Exception occurred
+            self.session.close()
+        # Don't close session on normal exit - let it be garbage collected
 
     def _commit(self):
         self.session.commit()
+        # Don't close session after commit
 
     def rollback(self):
         self.session.rollback()
+
+    def close(self):
+        """Explicitly close session when done"""
+        self.session.close()
