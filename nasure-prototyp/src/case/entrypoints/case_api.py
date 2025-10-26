@@ -238,7 +238,6 @@ def create_case(case_request: CreateCaseRequest):
             lab_timestamp=lab_timestamp,
             stored_at=datetime.now(timezone.utc),
             created_at=datetime.now(timezone.utc),
-            canton=case_request.canton
         )
         
         # Delegate to message bus
@@ -252,15 +251,11 @@ def create_case(case_request: CreateCaseRequest):
             if isinstance(result, tuple) and len(result) == 2:
                 case_id, created = result
 
-                logger.info(f"DEBUG: Case created with ID: {case_id}, created: {created}")
-
             else:
                 raise ValueError("Handler returned unexpected format")
 
             # Retrieve the case to return full details
-            logger.info("Before uow.cases.get")
             case = uow.cases.get(case_id)
-            logger.info(f"After uow.cases.get, case: {case}, type: {type(case)}")
             if not case:
                 raise ValueError(f"Case with ID {case_id} not found after creation")
 

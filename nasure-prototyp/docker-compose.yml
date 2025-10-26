@@ -93,7 +93,8 @@ services:
       DB_PASSWORD: lab_dp_pass
       DB_NAME: lab_dp_db
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     volumes:
       - ./src:/app/src
       - ./tests:/app/tests
@@ -152,6 +153,25 @@ services:
     volumes:
       - ./src:/app/src
     command: uvicorn case.entrypoints.case_api:app --host=0.0.0.0 --port=8003 --reload
+    restart: unless-stopped
+
+  case-mgmt-consumer:
+    build: .
+    environment:
+      REDIS_HOST: redis
+      DB_HOST: postgres
+      DB_USER: lab_dp_user
+      DB_PASSWORD: lab_dp_pass
+      DB_NAME: lab_dp_db
+      API_HOST: lab-dp-api
+    depends_on:
+      - redis
+      - postgres
+      - fhir-api
+      - lab-dp-api
+    volumes:
+      - ./src:/app/src
+    command: python3 -m case.entrypoints.redis_eventconsumer
     restart: unless-stopped
 
 volumes:

@@ -4,7 +4,7 @@ import json
 import logging
 import redis
 from sqlalchemy import create_engine
-
+from datetime import datetime, timezone
 import config
 from case.service_layer import messagebus
 from case.domain import commands
@@ -22,6 +22,13 @@ def main():
     """Main entry point for Redis event consumer."""
     logger.info("Case Mgmt Redis pubsub consumer starting")
 
+    # Initialize database and ORM mappers (Cosmic Python pattern)
+    logger.info("Initializing database schema and ORM mappers...")
+    engine = create_engine(config.get_postgres_uri())
+    orm.metadata.create_all(engine)
+    orm.start_mappers()
+    logger.info("✓ Database tables created and ORM mappers initialized")
+
     pubsub = r.pubsub(ignore_subscribe_messages=True)
     pubsub.subscribe("surveillance:data-products")
 
@@ -30,6 +37,27 @@ def main():
     for m in pubsub.listen():
         handle_data_product_created(m)
 
+def parse_timestamp(timestamp_str, field_name="timestamp"):
+    """Parse timestamp string to datetime object with error handling."""
+    if not timestamp_str:
+        logger.warning(f"No {field_name} provided, using current time")
+        return datetime.now(timezone.utc)
+    
+    try:
+        # Handle different timestamp formats
+        if timestamp_str.endswith('Z'):
+            # ISO format with Z suffix
+            return datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+        elif '+' in timestamp_str or timestamp_str.endswith('00:00'):
+            # ISO format with timezone
+            return datetime.fromisoformat(timestamp_str)
+        else:
+            # Assume naive datetime, make it UTC
+            dt = datetime.fromisoformat(timestamp_str)
+            return dt.replace(tzinfo=timezone.utc)
+    except ValueError as e:
+        logger.error(f"Failed to parse {field_name} '{timestamp_str}': {e}")
+        return datetime.now(timezone.utc)
 
 def handle_data_product_created(m):
     """
@@ -57,9 +85,9 @@ def handle_data_product_created(m):
         created_at_str = data.get("created_at")  # When the data product was created
 
         # Parse timestamps
-        from datetime import datetime
-        stored_at = datetime.fromisoformat(stored_at_str.replace('Z', '+00:00')) if stored_at_str else datetime.utcnow()
-        created_at = datetime.fromisoformat(created_at_str.replace('Z', '+00:00')) if created_at_str else datetime.utcnow()
+        lab_timestamp = parse_timestamp(timestamp, "lab_timestamp")
+        stored_at = parse_timestamp(stored_at_str, "stored_at")
+        created_at = parse_timestamp(created_at_str, "created_at")
 
         # Validate required fields
         if not product_id:
@@ -77,7 +105,7 @@ def handle_data_product_created(m):
         logger.info(f"  - patient_id: {patient_id}")
         logger.info(f"  - pathogen_code: {pathogen_code}")
         logger.info(f"  - pathogen_description: {pathogen_description}")
-        logger.info(f"  - timestamp: {timestamp}")
+        logger.info(f"  - timestamp: {lab_timestamp}")
         logger.info(f"  - stored_at: {stored_at}")
         logger.info(f"  - created_at: {created_at}")
 
@@ -87,7 +115,7 @@ def handle_data_product_created(m):
             patient_id=patient_id,
             pathogen_code=pathogen_code,
             pathogen_description=pathogen_description,
-            lab_timestamp=timestamp,
+            lab_timestamp=lab_timestamp,
             stored_at=stored_at,
             created_at=created_at
         )
@@ -98,8 +126,6 @@ def handle_data_product_created(m):
 
         logger.info(f"Successfully processed product {product_id}, results: {results}")
 
-    except json.JSONDecodeError as e:
-        logger.error(f"Failed to parse JSON from message: {e}")
     except Exception as e:
         logger.error(f"Error handling created data product event: {e}", exc_info=True)
 

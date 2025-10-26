@@ -37,12 +37,12 @@ def create_case_from_data_product(command: CreateCaseFromDataProduct, uow: Abstr
         with uow:
             # Step 1: Fetch newly created DataProduct depending on product_type
             # TODO: Support clinical reports later
-            #product = fetch_product_from_lab_dp(command.product_id)
-            #if not product:
-            #   raise ValueError(f"Data product {command.product_id} not found in lab_dp")  
-            product={}
+            product = fetch_product_from_lab_dp(command.product_id)
+            if not product:
+                logger.error(f"Data product {command.product_id} not found in lab_dp")
+                product={}
 
-            #logger.info(f"Fetched data product from lab_dp: {product}")
+            logger.info(f"Fetched data product from lab_dp: {product}")
 
             # Step 2: fetch all cases for this patient and patogen
             existing_cases, total = uow.cases.get_all_cases_paginated(
@@ -128,7 +128,7 @@ def create_new_case_internal(product: dict, command: CreateCaseFromDataProduct, 
         created_at=datetime.now(timezone.utc),
         case_class="sicherer Fall",
         status="neu", 
-        canton=command.canton
+        canton=product.get("canton", "ZH"),  # default to ZH if not provided
     )
 
     # Add to repository
