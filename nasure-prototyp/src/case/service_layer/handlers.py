@@ -190,16 +190,3 @@ def to_utc(dt):
     if dt.tzinfo is None:
         return dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc)
-
-# def extract_case_data_from_product(product_data: dict, command: CreateCaseFromDataProduct) -> dict:
-#     """Extract case-relevant information from product data."""
-#     return {
-#         "patient_id": command.patient_id,
-#         "pathogen_code": command.pathogen_code,
-#         "pathogen_description": command.pathogen_description,
-#         "case_date": command.timestamp or product_data.get("timestamp"),
-#         "case_class": "confirmed",  # or derive from product data
-#         "case_status": "active",
-#         "canton": product_data.get("canton", "ZH"),  # extract from product
-#         "product_id": command.product_id
-#     }
