@@ -58,8 +58,6 @@ services:
     command: >
       bash -c "
       uvicorn fhir_ingestion.entrypoints.fhir_api:app --host=0.0.0.0 --port=8000 &
-      echo '🔍 Debug info:' &
-      pwd &
       streamlit run src/fhir_ingestion/bundle_generator/bundle_generator.py --server.port=8010 --server.address=0.0.0.0 --server.headless=true &
       wait
       "
@@ -176,6 +174,19 @@ services:
     command: python3 -m case.entrypoints.redis_eventconsumer
     restart: unless-stopped
 
+  kad-dashboard:
+    build: .
+    ports:
+      - "8020:8020"
+    environment:
+      CASE_API_URL: http://case-mgmt-api:8003
+    depends_on:
+      - case-mgmt-api
+    volumes:
+      - ./src:/app/src
+    command: streamlit run src/case/kad_dashboard/kad_dashboard.py --server.port=8020 --server.address=0.0.0.0 --server.headless=true
+    restart: unless-stopped
+  
 volumes:
   grafana_data:
 

@@ -141,19 +141,19 @@ api_timeout = st.sidebar.number_input("Timeout (Sekunden)", min_value=5, max_val
 # API Status Check in Sidebar
 st.sidebar.subheader("🏥 API Status")
 
-if st.sidebar.button("🔍 API prüfen"):
+if st.sidebar.button("🔍 Check API"):
     try:
-        st.sidebar.info(f"Prüfe API: {api_base_url}/health")
+        st.sidebar.info(f"Checking API: {api_base_url}/health")
         response = requests.get(f"{api_base_url}/health", timeout=5)
         if response.status_code == 200:
-            st.sidebar.success("✅ API erreichbar")
+            st.sidebar.success("✅ API reachable")
         else:
-            st.sidebar.warning(f"⚠️ API antwortet mit Status {response.status_code}")
+            st.sidebar.warning(f"⚠️ API answers with status {response.status_code}")
     except:
-        st.sidebar.error("❌ API nicht erreichbar")
+        st.sidebar.error("❌ API not reachable")
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("created with ❤️ by NASURE core team 2025")
+st.sidebar.markdown(f"created with ❤️  \n© by NASURE team 2025")
 
 # --- Form  ---
 
