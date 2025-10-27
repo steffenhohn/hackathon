@@ -152,7 +152,7 @@ class FHIRTransformer:
             entries = bundle.get("entry", [])
             for entry in entries:
                 resource = entry.get("resource", {})
-                if resource.get("resourceType") == "DiagnosticReport":
+                if resource.get("resourceType") == "Observation":
                     effective_dt = resource.get("effectiveDateTime")
                     if effective_dt:
                         return effective_dt
