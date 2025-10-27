@@ -36,6 +36,10 @@ if 'pathogen_code_filter' not in st.session_state:
     st.session_state.pathogen_code_filter = ""
 if 'search_term' not in st.session_state:
     st.session_state.search_term = ""
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
+if 'username' not in st.session_state:
+    st.session_state.username = ""
 
 @st.cache_data(ttl=30)  # Cache for 30 seconds
 def fetch_all_cases(api_url: str, page_size: int = 100) -> Dict:
@@ -79,17 +83,31 @@ def format_case_data(cases_data: Dict) -> pd.DataFrame:
     
     # Format datetime columns
     if 'lab_timestamp' in df.columns:
-        df['lab_timestamp'] = pd.to_datetime(df['lab_timestamp'])
-        df['lab_date'] = df['lab_timestamp'].dt.date
-        df['lab_time'] = df['lab_timestamp'].dt.time
-    
+        try:
+            df['lab_timestamp'] = pd.to_datetime(df['lab_timestamp'], format='ISO8601', errors='coerce')
+            df['lab_date'] = df['lab_timestamp'].dt.date
+            df['lab_time'] = df['lab_timestamp'].dt.time
+        except Exception as e:
+            st.warning(f"⚠️ Error parsing lab_timestamp: {e}")
+            # Fallback: try without format specification
+            try:
+                df['lab_timestamp'] = pd.to_datetime(df['lab_timestamp'], errors='coerce')
+                df['lab_date'] = df['lab_timestamp'].dt.date
+                df['lab_time'] = df['lab_timestamp'].dt.time
+            except Exception as e2:
+                st.error(f"❌ Failed to parse lab_timestamp: {e2}")
+                # Keep original string values
+                df['lab_date'] = df['lab_timestamp']
+                df['lab_time'] = None
+
+
     if 'created_at' in df.columns:
         df['created_at'] = pd.to_datetime(df['created_at'])
         df['created_date'] = df['created_at'].dt.date
     
     # Add age in days
-    if 'created_at' in df.columns:
-        df['age_days'] = (datetime.now() - df['created_at']).dt.days
+    if 'lab_timestamp' in df.columns:
+        df['age_days'] = (datetime.now() - df['lab_timestamp']).dt.days
     
     return df
 
@@ -163,10 +181,48 @@ def create_summary_metrics(df: pd.DataFrame, df_filtered: pd.DataFrame):
         else:
             st.metric("🦠 Unique Pathogens", 0)
 
+def authenticate_user(username: str, password: str) -> bool:
+    """Simple authentication - replace with proper auth later"""
+    return username == "admin" and password == "admin"
+
+def fetch_patient_data(patient_id: str) -> Optional[Dict]:
+    """Fetch patient data from patient service API"""
+    if not st.session_state.authenticated:
+        return None
+        
+    try:
+        patient_service_url = os.getenv("PATIENT_SERVICE_URL", "http://patient-service-api:8002")
+        
+        with httpx.Client(timeout=10.0) as client:
+            # Use the patient lookup endpoint
+            response = client.get(f"{patient_service_url}/api/v1/patient/{patient_id}")
+            
+            if response.status_code == 404:
+                st.warning(f"⚠️ Patient {patient_id} not found")
+                return None
+            elif response.status_code == 403:
+                st.error("❌ Access denied - insufficient permissions")
+                return None
+                
+            response.raise_for_status()
+            return response.json()
+            
+    except httpx.RequestError as e:
+        st.error(f"❌ Error connecting to patient service: {e}")
+        return None
+    except httpx.HTTPStatusError as e:
+        st.error(f"❌ Patient service error: {e.response.status_code}")
+        return None
+    except Exception as e:
+        st.error(f"❌ Unexpected error fetching patient data: {e}")
+        return None
+
 # --- Main Dashboard ---
 
 st.title("🏥 NASURE Case Management Dashboard")
 
+
+# --- Sidebar ---
 
 # Auto-refresh settings
 st.sidebar.subheader("🔄 Data Refresh ")
@@ -186,6 +242,32 @@ else:
 if st.sidebar.button("🔄 Refresh Now"):
     st.cache_data.clear()
     st.rerun()
+
+# Authentication Section
+st.sidebar.subheader("🔐 Authentication")
+
+if not st.session_state.authenticated:
+    # Login form
+    with st.sidebar.form("login_form"):
+        username = st.text_input("Username", placeholder="admin")
+        password = st.text_input("Password", type="password", placeholder="admin")
+        login_button = st.form_submit_button("🔑 Login")
+        
+        if login_button:
+            if authenticate_user(username, password):
+                st.session_state.authenticated = True
+                st.session_state.username = username
+                st.sidebar.success("✅ Authentication successful!")
+                st.rerun()
+            else:
+                st.sidebar.error("❌ Invalid credentials")
+else:
+    # Show logged in user
+    st.sidebar.success(f"✅ Logged in as: {st.session_state.username}")
+    if st.sidebar.button("🚪 Logout"):
+        st.session_state.authenticated = False
+        st.session_state.username = ""
+        st.rerun()
 
 st.sidebar.markdown("---")
 st.sidebar.markdown(f"created with ❤️  \n© by NASURE team 2025")
@@ -329,22 +411,29 @@ if not df_filtered.empty:
         # Display clickable table
         st.markdown("**Click on a row to view case details:**")
         
+        # Sort the DataFrame by a specific column before displaying (e.g., by 'lab_date' descending)
+        sort_column = "lab_date"  # Change this to your preferred column
+        ascending = True         # Set to True for ascending, False for descending
+
+        if sort_column in df_filtered.columns:
+            df_display = df_filtered.sort_values(by=sort_column, ascending=ascending)
+        else:
+            df_display = df_filtered
+
         event = st.dataframe(
-            df_filtered[available_columns],
-            use_container_width=True,
+            df_display[available_columns],
+            width='stretch',
             height=400,
             on_select="rerun",  # Enable row selection
             selection_mode="single-row",  # Allow only single row selection
             column_config={
-                #"case_id": st.column_config.TextColumn("Case ID", width="medium"),
-                #"patient_id": st.column_config.TextColumn("Patient ID", width="medium"),
-                "status": st.column_config.TextColumn("Status", width="small"),
-                "pathogen_code": st.column_config.TextColumn("Pathogen Code", width="small"),
-                "pathogen_description": st.column_config.TextColumn("Pathogen", width="large"),
-                "canton": st.column_config.TextColumn("Canton", width="small"),
-                "lab_date": st.column_config.DateColumn("Lab Date", width="small"),
-                "created_date": st.column_config.DateColumn("Created", width="small"),
-                "age_days": st.column_config.NumberColumn("Age (days)", width="small")
+            "status": st.column_config.TextColumn("Status", width="small"),
+            "pathogen_code": st.column_config.TextColumn("Pathogen Code", width="small"),
+            "pathogen_description": st.column_config.TextColumn("Pathogen", width="large"),
+            "canton": st.column_config.TextColumn("Canton", width="small"),
+            "lab_date": st.column_config.DateColumn("Lab Date", width="small"),
+            "created_date": st.column_config.DateColumn("Created", width="small"),
+            "age_days": st.column_config.NumberColumn("Age (days)", width="small")
             }
         )
         
@@ -359,19 +448,26 @@ if not df_filtered.empty:
                 
                 # Case Detail Actions
                 st.markdown("---")
-                st.subheader(f"🔍 Case Details: {selected_case_id}")
+                st.subheader(f"🔍 Case Details")
                 
                 with st.expander(f"📋 Selected Case: {selected_case_id}", expanded=True):
                     # Display case information in a nice format
                     col1, col2, col3 = st.columns(3)
                     
                     with col1:
-                        st.write("**Basic Information**")
-                        st.write(f"**Case ID:** {case_row.get('case_id', 'N/A')}")
-                        st.write(f"**Patient ID:** {case_row.get('patient_id', 'N/A')}")
-                        st.write(f"**Status:** {case_row.get('status', 'N/A')}")
+                        st.write("**Case Information**")
+                        
+                        # Enhanced patient information
+                        status = case_row.get('status')
+                        if status == 'neu':
+                            st.markdown("**Case Statu:** :blue-badge[neu]")
+                        elif status == 'in Bearbeitung':
+                            st.markdown("**Case Status:** :orange-badge[in Bearbeitung]")
+                        elif status == 'abgeschlossen':
+                            st.markdown("**Case Status:** :green-badge[abgeschlossen]")
+                        
                         st.write(f"**Canton:** {case_row.get('canton', 'N/A')}")
-                    
+                   
                     with col2:
                         st.write("**Pathogen Information**")
                         st.write(f"**Code:** {case_row.get('pathogen_code', 'N/A')}")
@@ -384,11 +480,70 @@ if not df_filtered.empty:
                         st.write(f"**Created:** {case_row.get('created_date', 'N/A')}")
                         st.write(f"**Age:** {case_row.get('age_days', 'N/A')} days")
                     
+                    st.markdown("---")
+                    st.write("**Patient Data**")
+                    patient_id = case_row.get('patient_id', 'N/A')
+                    
+                    # Show patient data if authenticated
+                    if st.session_state.authenticated and patient_id != 'N/A':
+                    
+                        if st.button("👤 Fetch Patient Data", key=f"fetch_patient_{selected_case_id}"):
+                            with st.spinner("🔄 Fetching patient data..."):
+                                patient_data = fetch_patient_data(patient_id)
+                                
+                                if patient_data:
+                                    st.session_state[f'patient_data_{patient_id}'] = patient_data
+                                    st.success("✅ Patient data fetched successfully!")
+                        
+                        # Display patient data if available
+                        if f'patient_data_{patient_id}' in st.session_state:
+                            patient_info = st.session_state[f'patient_data_{patient_id}']
+                            
+                            col_pat1, col_pat2= st.columns(2)
+                            with col_pat1:
+                                st.write(f"**Patient ID:** {patient_id}")
+                                st.write(f"**Family Name:** {patient_info.get('family_name', 'N/A')}")
+                                st.write(f"**Given Name:** {patient_info.get('given_name', 'N/A')}") 
+
+                            with col_pat2:
+                                st.write(f"**AHV Number:** {patient_info.get('ahv_number', 'N/A')}")
+                                st.write(f"**Birthdate:** {patient_info.get('birthdate', 'N/A')}")
+                                st.write(f"**Canton of residence:** {case_row.get('canton', 'N/A')}")
+                               
+                            # Raw patient data
+                            with st.expander("🔧 Raw Patient Data"):
+                                st.json(patient_info)
+                        else:
+                            col_pat1, col_pat2= st.columns(2)
+                            with col_pat1:
+                                st.write(f"**Patient ID:** {patient_id}")
+                                st.write(f"**Family Name:** *****")
+                                st.write(f"**Given Name:** *****") 
+
+                            with col_pat2:
+                                st.write(f"**AHV Number:** *****" )
+                                st.write(f"**Birthdate:** *****" )
+                                st.write(f"**Canton of residence:** {case_row.get('canton', 'N/A')}")
+                    
+                    elif not st.session_state.authenticated:
+                        st.info("🔐 Login required to view patient data")
+                        col_pat1, col_pat2= st.columns(2)
+                        with col_pat1:
+                            st.write(f"**Patient ID:** {patient_id}")
+                            st.write(f"**Family Name:** *****")
+                            st.write(f"**Given Name:** *****") 
+
+                        with col_pat2:
+                            st.write(f"**AHV Number:** *****" )
+                            st.write(f"**Birthdate:** *****" )
+                            st.write(f"**Canton of residence:** {case_row.get('canton', 'N/A')}")
+
                     # Full case data as JSON (collapsible)
-                    with st.expander("🔧 Raw Case Data"):
-                        st.json(case_row)
+                    #with st.expander("🔧 Raw Case Data"):
+                    #    st.json(case_row)
                     
                     # Action buttons
+                    st.markdown("---")
                     st.markdown("**Actions:**")
                     action_col1, action_col2, action_col3, action_col4 = st.columns(4)
                     
@@ -424,7 +579,7 @@ if not df_filtered.empty:
         
     else:
         # Fallback: show all available columns
-        st.dataframe(df_filtered, use_container_width=True, height=400)
+        st.dataframe(df_filtered, width='stretch', height=400)
 
         # Export functionality
         st.subheader("💾 Export Data")

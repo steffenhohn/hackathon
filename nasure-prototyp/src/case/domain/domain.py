@@ -12,7 +12,7 @@ class CaseRecord:
     lab_timestamp: datetime   # lab report timestamp
     created_at: datetime      # when the case was created at
     case_class: str           # Case classification: sicherer Fall, wahrscheinlicher Fall, Verdachtsfall
-    status: str               # Case status: neu, in Bearbeitung, abgeschlossen, archiviert
+    status: str               # Case status: neu, in Bearbeitung, abgeschlossen
     canton: str               # 2 letter canton code
 
     def __hash__(self):

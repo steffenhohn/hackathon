@@ -128,7 +128,8 @@ def create_new_case_internal(product: dict, command: CreateCaseFromDataProduct, 
         created_at=datetime.now(timezone.utc),
         case_class="sicherer Fall",
         status="neu", 
-        canton=product.get("canton", "ZH"),  # default to ZH if not provided
+        # TODO : get canton from patient data later (product currently doesn't have it)
+        canton=product.get("canton", "NA"),
     )
 
     # Add to repository
