@@ -81,11 +81,13 @@ class PatientService:
         else accept any identifier that looks like a 13-digit Swiss AHV (often starting with '756').
         Return: AHV number digits-only.
         """
-        identifier = patient.get("identifier") or []
-        ahv_string = (identifier[0].get("value") or "").strip()
-        ahv_number = self.normalize_ahv(ahv_string)
-        if len(ahv_number) == 13 and ahv_number.isdigit():
-            return ahv_number
+        ahv_string = patient.get("id") or []
+        #identifier = patient.get("identifier") or []
+        #ahv_string = (identifier[0].get("value") or "").strip()
+        return ahv_string
+        #ahv_number = self.normalize_ahv(ahv_string)
+        #if len(ahv_number) == 13 and ahv_number.isdigit():
+        #    return ahv_number
         
         raise ValueError("AHV number not found in Patient.identifier (AHVN13).")
 

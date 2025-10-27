@@ -13,10 +13,12 @@ from shared.service_layer.unit_of_work import SqlAlchemyUnitOfWork
 from shared.adapters import orm
 from shared.services.pseudonymization import PatientService
 
-log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
 logging.basicConfig(
-    level=getattr(logging, log_level),
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler()  # This sends logs to stdout/stderr
+    ]
 )
 logger = logging.getLogger(__name__)
 

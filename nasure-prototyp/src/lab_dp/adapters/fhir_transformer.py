@@ -4,9 +4,19 @@ import logging
 import uuid
 from typing import Dict, Any, Optional
 from datetime import datetime
-
+import os
+import httpx
+import config
 from lab_dp.domain.domain import LabDataProduct
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler()  # This sends logs to stdout/stderr
+    ]
+)
 logger = logging.getLogger(__name__)
 
 
@@ -33,7 +43,13 @@ class FHIRTransformer:
             logger.info(f"Transforming bundle {bundle_id}")
 
             # Extract patient ID from bundle
-            patient_id = FHIRTransformer._extract_patient_id(bundle)
+            patient_ahv = FHIRTransformer._extract_patient_id(bundle)
+
+            # Extract patient resource from bundle
+            patient_resource = FHIRTransformer._extract_patient_resource(bundle)
+
+            # Pseudonymize patient resource
+            patient_id = FHIRTransformer._pseudonymize_patient(patient_resource)
 
             # Extract timestamp from bundle
             timestamp = FHIRTransformer._extract_timestamp(bundle)
@@ -62,6 +78,43 @@ class FHIRTransformer:
         except Exception as e:
             logger.error(f"Failed to transform bundle {bundle_id}: {e}")
             raise FHIRTransformationError(f"Transformation failed: {e}") from e
+
+    @staticmethod
+    def _extract_patient_resource(bundle: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Extract the complete Patient resource from FHIR bundle.
+        
+        Returns the full Patient resource that can be sent directly to 
+        the pseudonymization API endpoint.
+        
+        Args:
+            bundle: FHIR Bundle dictionary
+            
+        Returns:
+            Complete Patient resource dictionary matching FHIR Patient schema
+            
+        Raises:
+            FHIRTransformationError: If Patient resource not found
+        """
+        try:
+            entries = bundle.get("entry", [])
+            
+            # Look for Patient resource in bundle entries
+            for entry in entries:
+                resource = entry.get("resource", {})
+                if resource.get("resourceType") == "Patient":
+                    logger.info(f"Found Patient resource: {resource}")
+                    
+                    # Return the complete Patient resource as-is
+                    # This matches the FHIRPatient model config in the API
+                    return resource
+            
+            # Patient resource not found
+            raise FHIRTransformationError("No Patient resource found in bundle")
+            
+        except Exception as e:
+            logger.error(f"Error extracting Patient resource: {e}")
+            raise FHIRTransformationError(f"Error extracting Patient resource: {e}") from e
 
     @staticmethod
     def _extract_patient_id(bundle: Dict[str, Any]) -> str:
@@ -162,6 +215,55 @@ class FHIRTransformer:
 
         except Exception as e:
             raise FHIRTransformationError(f"Error extracting pathogen info: {e}") from e
+
+    @staticmethod
+    def _pseudonymize_patient(patient_resource: Dict[str, Any]) -> str:
+        """
+        Send Patient resource to pseudonymization API and get patient_id.
+        
+        Args:
+            patient_resource: Complete FHIR Patient resource
+            
+        Returns:
+            patient_id: Pseudonymized patient identifier
+            
+        Raises:
+            FHIRTransformationError: If pseudonymization fails
+        """
+        try:
+            # Get patient service URL from environment
+            patient_service_url = config.get_patient_service_api_url()
+            endpoint = f"{patient_service_url}/api/v1/patient/pseudonymize"
+            
+            logger.info(f"Sending Patient resource to pseudonymization API: {endpoint}")
+            
+            with httpx.Client(timeout=30.0) as client:
+                response = client.post(endpoint, json=patient_resource)
+                
+                if response.status_code == 404:
+                    logger.error(f"Patient service not found at {endpoint}")
+                    raise FHIRTransformationError("Patient service not available")
+                    
+                response.raise_for_status()  # Raises HTTPStatusError for 4xx/5xx
+                
+                result = response.json()
+                patient_id = result.get('patient_id')
+                
+                if not patient_id:
+                    raise FHIRTransformationError("No patient_id returned from pseudonymization service")
+                    
+                logger.info(f"Successfully pseudonymized patient, got ID: {patient_id}")
+                return patient_id
+                
+        except httpx.RequestError as e:
+            logger.error(f"Failed to connect to patient service: {e}")
+            raise FHIRTransformationError(f"Patient service connection failed: {e}") from e
+        except httpx.HTTPStatusError as e:
+            logger.error(f"HTTP error from patient service: {e}")
+            raise FHIRTransformationError(f"Patient service error: {e.response.status_code}") from e
+        except Exception as e:
+            logger.error(f"Unexpected error in pseudonymization: {e}")
+            raise FHIRTransformationError(f"Pseudonymization failed: {e}") from e
 
 
 class FHIRTransformationError(Exception):

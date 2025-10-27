@@ -74,10 +74,12 @@ services:
       DB_PASSWORD: lab_dp_pass
       DB_NAME: lab_dp_db
       API_HOST: fhir-api
+      PATIENT_SERVICE_HOST: patient-service-api
     depends_on:
       - redis
       - postgres
       - fhir-api
+      - patient-service-api
     volumes:
       - ./src:/app/src
     command: python3 -m lab_dp.entrypoints.redis_eventconsumer

@@ -49,3 +49,9 @@ def get_api_url():
     host = os.environ.get("API_HOST", "localhost")
     port = 8000 if host == "localhost" else 8000
     return f"http://{host}:{port}"
+
+def get_patient_service_api_url():
+    """Get Patient Service API URL from environment variables."""
+    host = os.environ.get("PATIENT_SERVICE_HOST", "localhost")
+    port = 8002 if host == "localhost" else 8002
+    return f"http://{host}:{port}"
