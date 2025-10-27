@@ -24,26 +24,28 @@ if 'cached_data' not in st.session_state:
     st.session_state.cached_data = None
 if 'auto_refresh' not in st.session_state:
     st.session_state.auto_refresh = False
+if 'clear_filters' not in st.session_state:
+    st.session_state.clear_filters = False
+if 'status_filter' not in st.session_state:
+    st.session_state.status_filter = "not_closed"
+if 'canton_filter' not in st.session_state:
+    st.session_state.canton_filter = "All"
+if 'patient_id_filter' not in st.session_state:
+    st.session_state.patient_id_filter = ""
+if 'pathogen_code_filter' not in st.session_state:
+    st.session_state.pathogen_code_filter = ""
+if 'search_term' not in st.session_state:
+    st.session_state.search_term = ""
 
 @st.cache_data(ttl=30)  # Cache for 30 seconds
-def fetch_cases(api_url: str, status_filter: str = "not_closed", 
-                patient_id: str = None, pathogen_code: str = None, 
-                canton: str = None, page_size: int = 100) -> Dict:
-    """Fetch cases from the case management API"""
+def fetch_all_cases(api_url: str, page_size: int = 100) -> Dict:
+    """Fetch ALL cases from the case management API (no server-side filtering)"""
     try:
         params = {
             "page_size": page_size,
             "page": 1,
-            "status": status_filter
+            "status": "all"  # Fetch all cases regardless of status
         }
-        
-        # Add optional filters
-        if patient_id:
-            params["patient_id"] = patient_id
-        if pathogen_code:
-            params["pathogen_code"] = pathogen_code
-        if canton:
-            params["canton"] = canton
         
         # Use httpx.Client with context manager
         with httpx.Client(timeout=30.0) as client:
@@ -65,6 +67,7 @@ def fetch_cases(api_url: str, status_filter: str = "not_closed",
     except Exception as e:
         st.error(f"❌ Unexpected Error: {e}")
         return {"cases": [], "total_count": 0}
+    
 
 def format_case_data(cases_data: Dict) -> pd.DataFrame:
     """Convert API response to pandas DataFrame"""
@@ -90,28 +93,75 @@ def format_case_data(cases_data: Dict) -> pd.DataFrame:
     
     return df
 
-def create_summary_metrics(df: pd.DataFrame):
-    """Create summary metric cards"""
-    if df.empty:
-        st.info("📊 No cases to display")
-        return
+def apply_filters(df: pd.DataFrame, status_filter: str, canton_filter: Optional[str], 
+                 patient_id_filter: str, pathogen_code_filter: str, search_term: str) -> pd.DataFrame:
+    """Apply client-side filters to the dataframe with safe column checking"""
+    df_filtered = df.copy()
     
+    # Status filter - check if column exists
+    if status_filter != "All" and 'status' in df_filtered.columns:
+        if status_filter == "not_closed":
+            df_filtered = df_filtered[~df_filtered['status'].isin(['abgeschlossen', 'archiviert'])]
+        else:
+            df_filtered = df_filtered[df_filtered['status'] == status_filter]
+    
+    # Canton filter - check if column exists
+    if canton_filter and canton_filter != "All" and 'canton' in df_filtered.columns:
+        df_filtered = df_filtered[df_filtered['canton'] == canton_filter]
+    
+    # Patient ID filter - check if column exists
+    if patient_id_filter and 'patient_id' in df_filtered.columns:
+        df_filtered = df_filtered[df_filtered['patient_id'].str.contains(patient_id_filter, case=False, na=False)]
+    
+    # Pathogen code filter - check if column exists
+    if pathogen_code_filter and 'pathogen_code' in df_filtered.columns:
+        df_filtered = df_filtered[df_filtered['pathogen_code'].str.contains(pathogen_code_filter, case=False, na=False)]
+    
+    # Search term (searches across all columns) - check if dataframe is not empty
+    if search_term and not df_filtered.empty:
+        try:
+            mask = df_filtered.astype(str).apply(lambda x: x.str.contains(search_term, case=False, na=False)).any(axis=1)
+            df_filtered = df_filtered[mask] if isinstance(mask, pd.Series) else df_filtered
+        except Exception as e:
+            # If search fails, log and return unfiltered data
+            st.warning(f"Search failed: {e}")
+    
+    return df_filtered
+
+def create_summary_metrics(df: pd.DataFrame, df_filtered: pd.DataFrame):
+    """Create summary metric cards showing both total and filtered counts"""
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        st.metric("📋 Total Cases", len(df))
+        total_cases = len(df)
+        filtered_cases = len(df_filtered)
+        delta = f"{filtered_cases}/{total_cases}" if total_cases != filtered_cases else None
+        st.metric("📋 Total Cases", filtered_cases, delta=delta)
     
     with col2:
-        new_cases = len(df[df['status'] == 'neu']) if 'status' in df.columns else 0
-        st.metric("🆕 New Cases", new_cases)
+        if 'status' in df_filtered.columns:
+            new_cases = len(df_filtered[df_filtered['status'] == 'neu'])
+            total_new = len(df[df['status'] == 'neu']) if 'status' in df.columns else 0
+            delta = f"of {total_new}" if new_cases != total_new else None
+            st.metric("🆕 New Cases", new_cases, delta=delta)
+        else:
+            st.metric("🆕 New Cases", 0)
     
     with col3:
-        avg_age = df['age_days'].mean() if 'age_days' in df.columns else 0
-        st.metric("📅 Avg Age (days)", f"{avg_age:.1f}")
+        if 'age_days' in df_filtered.columns and not df_filtered.empty:
+            avg_age = df_filtered['age_days'].mean()
+            st.metric("📅 Avg Age (days)", f"{avg_age:.1f}")
+        else:
+            st.metric("📅 Avg Age (days)", "0.0")
     
     with col4:
-        unique_pathogens = df['pathogen_code'].nunique() if 'pathogen_code' in df.columns else 0
-        st.metric("🦠 Unique Pathogens", unique_pathogens)
+        if 'pathogen_code' in df_filtered.columns:
+            unique_pathogens = df_filtered['pathogen_code'].nunique()
+            total_unique = df['pathogen_code'].nunique() if 'pathogen_code' in df.columns else 0
+            delta = f"of {total_unique}" if unique_pathogens != total_unique else None
+            st.metric("🦠 Unique Pathogens", unique_pathogens, delta=delta)
+        else:
+            st.metric("🦠 Unique Pathogens", 0)
 
 # --- Main Dashboard ---
 
@@ -135,7 +185,7 @@ else:
 # Manual refresh button
 if st.sidebar.button("🔄 Refresh Now"):
     st.cache_data.clear()
-    st.experimental_rerun()
+    st.rerun()
 
 st.sidebar.markdown("---")
 st.sidebar.markdown(f"created with ❤️  \n© by NASURE team 2025")
@@ -147,75 +197,124 @@ if auto_refresh and st.session_state.last_refresh:
     time_since_refresh = (datetime.now() - st.session_state.last_refresh).seconds
     if time_since_refresh >= refresh_interval:
         st.cache_data.clear()
-        #st.experimental_rerun()
+        st.rerun()
 
 # Fetch data
-with st.spinner("🔄 Loading cases..."):
-    cases_data = fetch_cases(
-        api_base_url,
-        status_filter="not_closed"
-    )
-    
+with st.spinner("🔄 Loading all cases..."):
+    cases_data = fetch_all_cases(api_base_url)
+    # TODO: if cases_data.get("total_count", 0) > 1000, show warning about missing pagination
     st.session_state.last_refresh = datetime.now()
     st.session_state.cached_data = cases_data
-
+    
 # Convert to DataFrame
-df = format_case_data(cases_data)
+df_all = format_case_data(cases_data)
 
-# Display last refresh time
+# Summary metrics (showing filtered vs total)
+df_filtered = df_all.copy()  # Initially, no filters applied
+create_summary_metrics(df_all, df_filtered)
+
+# Display last refresh time and total count
 if st.session_state.last_refresh:
-    st.caption(f"Last refreshed: {st.session_state.last_refresh.strftime('%H:%M:%S')}")
-
-# Summary metrics
-create_summary_metrics(df)
-
+    total_count = len(df_all)
+    st.caption(f"Last refreshed: {st.session_state.last_refresh.strftime('%H:%M:%S')} | Total cases loaded: {total_count}")
 
 # --- Case Table with Interactive Details ---
 st.markdown("---")
 st.header("📋 Case Details")
 
-if not df.empty:
-    # Create filter columns
-    filter_col1, filter_col2, filter_col3, filter_col4 = st.columns(4)
+# --- CLIENT-SIDE FILTERS ---
 
-    with filter_col1:
-        status_options = ["all", "not_closed", "neu", "in Bearbeitung", "abgeschlossen", "archiviert"]
-        status_filter = st.selectbox("📊 Case Status", status_options, index=1)
+# Create filter columns
+filter_col1, filter_col2, filter_col3, filter_col4 = st.columns(4)
 
-    with filter_col2:
-        # Swiss cantons
-        swiss_cantons = [
-            "All", "AG", "AI", "AR", "BE", "BL", "BS", "FR", "GE", "GL", "GR",
-            "JU", "LU", "NE", "NW", "OW", "SG", "SH", "SO", "SZ", "TG",
-            "TI", "UR", "VD", "VS", "ZG", "ZH"
-        ]
-        canton_filter = st.selectbox("🗺️ Canton", swiss_cantons)
-        canton_filter = None if canton_filter == "All" else canton_filter
+with filter_col1:
+    status_options = ["All", "not_closed", "neu", "in Bearbeitung", "abgeschlossen", "archiviert"]
+    status_filter = st.selectbox(
+        "📊 Case Status", 
+        status_options, 
+        index=status_options.index(st.session_state.status_filter),
+        key="status_select"
+    )
+    st.session_state.status_filter = status_filter
 
-    with filter_col3:
-        patient_id_filter = st.text_input("👤 Patient ID", placeholder="Enter patient ID...")
-
-    with filter_col4:
-        pathogen_code_filter = st.text_input("🦠 Pathogen Code", placeholder="e.g., 31726-3")
-
-    # Search in table  
-    search_term = st.text_input("🔍 Search in table", placeholder="Search patient ID, pathogen...")
+with filter_col2:
+    # Swiss cantons + get unique cantons from data
+    base_cantons = ["All", "AG", "AI", "AR", "BE", "BL", "BS", "FR", "GE", "GL", "GR",
+                   "JU", "LU", "NE", "NW", "OW", "SG", "SH", "SO", "SZ", "TG",
+                   "TI", "UR", "VD", "VS", "ZG", "ZH"]
     
- 
-    
-    # Apply search filter
-    if search_term:
-        mask = df.astype(str).apply(lambda x: x.str.contains(search_term, case=False, na=False)).any(axis=1)
-        df_filtered = df[mask]
+    # Add any additional cantons found in the data
+    if 'canton' in df_all.columns:
+        data_cantons = df_all['canton'].dropna().unique().tolist()
+        all_cantons = base_cantons + [c for c in data_cantons if c not in base_cantons]
     else:
-        df_filtered = df.copy()
-       
-    # Add a clear filters button
+        all_cantons = base_cantons
+    
+    canton_filter = st.selectbox(
+        "🗺️ Canton", 
+        all_cantons,
+        index=all_cantons.index(st.session_state.canton_filter) if st.session_state.canton_filter in all_cantons else 0,
+        key="canton_select"
+    )
+    st.session_state.canton_filter = canton_filter
+
+with filter_col3:
+    patient_id_filter = st.text_input(
+        "👤 Patient ID", 
+        placeholder="Enter patient ID...",
+        value=st.session_state.patient_id_filter,
+        key="patient_input"
+    )
+    st.session_state.patient_id_filter = patient_id_filter
+
+with filter_col4:
+    pathogen_code_filter = st.text_input(
+        "🦠 Pathogen Code", 
+        placeholder="e.g., 31726-3",
+        value=st.session_state.pathogen_code_filter,
+        key="pathogen_input"
+    )
+    st.session_state.pathogen_code_filter = pathogen_code_filter
+
+# Global search
+search_term = st.text_input(
+    "🔍 Search across all fields", 
+    placeholder="Search patient ID, pathogen, case ID...",
+    value=st.session_state.search_term,
+    key="search_input"
+)
+st.session_state.search_term = search_term
+
+# Clear filters button with actual clearing functionality
+col1, col2 = st.columns([1, 4])
+with col1:
     if st.button("🗑️ Clear All Filters"):
+        # Reset all filter session state values
+        st.session_state.status_filter = "All"
+        st.session_state.canton_filter = "All"
+        st.session_state.patient_id_filter = ""
+        st.session_state.pathogen_code_filter = ""
+        st.session_state.search_term = ""
         st.rerun()
 
-    # Display results count
-    st.info(f"📊 Showing {len(df_filtered)} of {len(df)} cases")
+# --- APPLY FILTERS ---
+df_filtered = apply_filters(
+    df_all, 
+    status_filter, 
+    canton_filter if canton_filter != "All" else None,
+    patient_id_filter, 
+    pathogen_code_filter, 
+    search_term
+)
+
+# --- DISPLAY FILTERED TABLE ---
+
+if not df_filtered.empty:
+    # Display filter results
+    if len(df_filtered) != len(df_all):
+        st.info(f"📊 Showing {len(df_filtered)} of {len(df_all)} cases (filtered)")
+    else:
+        st.info(f"📊 Showing all {len(df_filtered)} cases")
     
     # Enhanced table with action buttons for each row
     display_columns = [
@@ -226,130 +325,130 @@ if not df.empty:
     # Only show columns that exist
     available_columns = [col for col in display_columns if col in df_filtered.columns]
     
-if available_columns:
-    # Display clickable table
-    st.markdown("**Click on a row to view case details:**")
-    
-    event = st.dataframe(
-        df_filtered[available_columns],
-        use_container_width=True,
-        height=400,
-        on_select="rerun",  # Enable row selection
-        selection_mode="single-row",  # Allow only single row selection
-        column_config={
-            #"case_id": st.column_config.TextColumn("Case ID", width="medium"),
-            #"patient_id": st.column_config.TextColumn("Patient ID", width="medium"),
-            "status": st.column_config.TextColumn("Status", width="small"),
-            "pathogen_code": st.column_config.TextColumn("Pathogen Code", width="small"),
-            "pathogen_description": st.column_config.TextColumn("Pathogen", width="large"),
-            "canton": st.column_config.TextColumn("Canton", width="small"),
-            "lab_date": st.column_config.DateColumn("Lab Date", width="small"),
-            "created_date": st.column_config.DateColumn("Created", width="small"),
-            "age_days": st.column_config.NumberColumn("Age (days)", width="small")
-        }
-    )
-    
-    # Handle row selection
-    if event.selection.rows:  # If a row is selected
-        selected_row_index = event.selection.rows[0]  # Get first selected row index
+    if available_columns:
+        # Display clickable table
+        st.markdown("**Click on a row to view case details:**")
         
-        # Get the selected case data
-        if selected_row_index < len(df_filtered):
-            case_row = df_filtered.iloc[selected_row_index].to_dict()
-            selected_case_id = case_row.get('case_id', 'Unknown')
+        event = st.dataframe(
+            df_filtered[available_columns],
+            use_container_width=True,
+            height=400,
+            on_select="rerun",  # Enable row selection
+            selection_mode="single-row",  # Allow only single row selection
+            column_config={
+                #"case_id": st.column_config.TextColumn("Case ID", width="medium"),
+                #"patient_id": st.column_config.TextColumn("Patient ID", width="medium"),
+                "status": st.column_config.TextColumn("Status", width="small"),
+                "pathogen_code": st.column_config.TextColumn("Pathogen Code", width="small"),
+                "pathogen_description": st.column_config.TextColumn("Pathogen", width="large"),
+                "canton": st.column_config.TextColumn("Canton", width="small"),
+                "lab_date": st.column_config.DateColumn("Lab Date", width="small"),
+                "created_date": st.column_config.DateColumn("Created", width="small"),
+                "age_days": st.column_config.NumberColumn("Age (days)", width="small")
+            }
+        )
+        
+        # Handle row selection
+        if event.selection.rows:  # If a row is selected
+            selected_row_index = event.selection.rows[0]  # Get first selected row index
             
-            # Case Detail Actions
-            st.markdown("---")
-            st.subheader(f"🔍 Case Details: {selected_case_id}")
-            
-            with st.expander(f"📋 Selected Case: {selected_case_id}", expanded=True):
-                # Display case information in a nice format
-                col1, col2, col3 = st.columns(3)
+            # Get the selected case data
+            if selected_row_index < len(df_filtered):
+                case_row = df_filtered.iloc[selected_row_index].to_dict()
+                selected_case_id = case_row.get('case_id', 'Unknown')
                 
-                with col1:
-                    st.write("**Basic Information**")
-                    st.write(f"**Case ID:** {case_row.get('case_id', 'N/A')}")
-                    st.write(f"**Patient ID:** {case_row.get('patient_id', 'N/A')}")
-                    st.write(f"**Status:** {case_row.get('status', 'N/A')}")
-                    st.write(f"**Canton:** {case_row.get('canton', 'N/A')}")
+                # Case Detail Actions
+                st.markdown("---")
+                st.subheader(f"🔍 Case Details: {selected_case_id}")
                 
-                with col2:
-                    st.write("**Pathogen Information**")
-                    st.write(f"**Code:** {case_row.get('pathogen_code', 'N/A')}")
-                    st.write(f"**Description:** {case_row.get('pathogen_description', 'N/A')}")
-                    st.write(f"**Case Class:** {case_row.get('case_class', 'N/A')}")
-                
-                with col3:
-                    st.write("**Timeline**")
-                    st.write(f"**Lab Date:** {case_row.get('lab_date', 'N/A')}")
-                    st.write(f"**Created:** {case_row.get('created_date', 'N/A')}")
-                    st.write(f"**Age:** {case_row.get('age_days', 'N/A')} days")
-                
-                # Full case data as JSON (collapsible)
-                with st.expander("🔧 Raw Case Data"):
-                    st.json(case_row)
-                
-                # Action buttons
-                st.markdown("**Actions:**")
-                action_col1, action_col2, action_col3, action_col4 = st.columns(4)
-                
-                with action_col1:
-                    if st.button("✅ Mark Processed", key=f"process_{selected_case_id}"):
-                        st.info("🚧 Action functionality coming soon...")
-                        # if update_case_status(api_base_url, selected_case_id, "in Bearbeitung"):
-                        #     st.cache_data.clear()  # Refresh data
-                        #     st.rerun()
-                
-                with action_col2:
-                    if st.button("🔄 Refresh Case", key=f"refresh_{selected_case_id}"):
-                        st.info("🚧 Refresh functionality coming soon...")
-                        # detailed_case = fetch_single_case(api_base_url, selected_case_id)
-                        # if detailed_case:
-                        #     st.success("✅ Case refreshed")
-                        #     st.json(detailed_case)
-                
-                with action_col3:
-                    if st.button("📋 View Lab Data", key=f"lab_{selected_case_id}"):
-                        # Link to lab data product
-                        lab_dp_url = "http://lab-dp-api:8001"
-                        product_id = case_row.get('product_id', 'unknown')
-                        st.info(f"🔗 Lab Data URL: {lab_dp_url}/api/v1/data-product/{product_id}")
-                        st.write(f"Product ID: {product_id}")
-                
-                with action_col4:
-                    if st.button("🏁 Close Case", key=f"close_{selected_case_id}"):
-                        st.info("🚧 Close case functionality coming soon...")
-                        # if update_case_status(api_base_url, selected_case_id, "abgeschlossen"):
-                        #     st.cache_data.clear()  # Refresh data
-                        #     st.rerun()
-    
+                with st.expander(f"📋 Selected Case: {selected_case_id}", expanded=True):
+                    # Display case information in a nice format
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        st.write("**Basic Information**")
+                        st.write(f"**Case ID:** {case_row.get('case_id', 'N/A')}")
+                        st.write(f"**Patient ID:** {case_row.get('patient_id', 'N/A')}")
+                        st.write(f"**Status:** {case_row.get('status', 'N/A')}")
+                        st.write(f"**Canton:** {case_row.get('canton', 'N/A')}")
+                    
+                    with col2:
+                        st.write("**Pathogen Information**")
+                        st.write(f"**Code:** {case_row.get('pathogen_code', 'N/A')}")
+                        st.write(f"**Description:** {case_row.get('pathogen_description', 'N/A')}")
+                        st.write(f"**Case Class:** {case_row.get('case_class', 'N/A')}")
+                    
+                    with col3:
+                        st.write("**Timeline**")
+                        st.write(f"**Lab Date:** {case_row.get('lab_date', 'N/A')}")
+                        st.write(f"**Created:** {case_row.get('created_date', 'N/A')}")
+                        st.write(f"**Age:** {case_row.get('age_days', 'N/A')} days")
+                    
+                    # Full case data as JSON (collapsible)
+                    with st.expander("🔧 Raw Case Data"):
+                        st.json(case_row)
+                    
+                    # Action buttons
+                    st.markdown("**Actions:**")
+                    action_col1, action_col2, action_col3, action_col4 = st.columns(4)
+                    
+                    with action_col1:
+                        if st.button("✅ Mark Processed", key=f"process_{selected_case_id}"):
+                            st.info("🚧 Action functionality coming soon...")
+                            # if update_case_status(api_base_url, selected_case_id, "in Bearbeitung"):
+                            #     st.cache_data.clear()  # Refresh data
+                            #     st.rerun()
+                    
+                    with action_col2:
+                        if st.button("🔄 Refresh Case", key=f"refresh_{selected_case_id}"):
+                            st.info("🚧 Refresh functionality coming soon...")
+                            # detailed_case = fetch_single_case(api_base_url, selected_case_id)
+                            # if detailed_case:
+                            #     st.success("✅ Case refreshed")
+                            #     st.json(detailed_case)
+                    
+                    with action_col3:
+                        if st.button("📋 View Lab Data", key=f"lab_{selected_case_id}"):
+                            # Link to lab data product
+                            lab_dp_url = "http://lab-dp-api:8001"
+                            product_id = case_row.get('product_id', 'unknown')
+                            st.info(f"🔗 Lab Data URL: {lab_dp_url}/api/v1/data-product/{product_id}")
+                            st.write(f"Product ID: {product_id}")
+                    
+                    with action_col4:
+                        if st.button("🏁 Close Case", key=f"close_{selected_case_id}"):
+                            st.info("🚧 Close case functionality coming soon...")
+                            # if update_case_status(api_base_url, selected_case_id, "abgeschlossen"):
+                            #     st.cache_data.clear()  # Refresh data
+                            #     st.rerun()
+        
     else:
-        # No row selected
-        st.info("👆 Click on a row in the table above to view case details")
+        # Fallback: show all available columns
+        st.dataframe(df_filtered, use_container_width=True, height=400)
+
+        # Export functionality
+        st.subheader("💾 Export Data")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            csv_data = df_filtered.to_csv(index=False)
+            st.download_button(
+                "📄 Download as CSV",
+                csv_data,
+                file_name=f"cases_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv"
+            )
+        
+        with col2:
+            json_data = df_filtered.to_json(orient='records', date_format='iso')
+            st.download_button(
+                "📋 Download as JSON",
+                json_data,
+                file_name=f"cases_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                mime="application/json"
+            )
 
 else:
-    # Fallback: show all available columns
-    st.dataframe(df_filtered, use_container_width=True, height=400)
-
-    # Export functionality
-    st.subheader("💾 Export Data")
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        csv_data = df_filtered.to_csv(index=False)
-        st.download_button(
-            "📄 Download as CSV",
-            csv_data,
-            file_name=f"cases_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-            mime="text/csv"
-        )
-    
-    with col2:
-        json_data = df_filtered.to_json(orient='records', date_format='iso')
-        st.download_button(
-            "📋 Download as JSON",
-            json_data,
-            file_name=f"cases_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
-            mime="application/json"
-        )
-
+    st.info("📭 No cases found with current filters")
+    if len(df_all) > 0:
+        st.info(f"💡 Try adjusting your filters. Total available cases: {len(df_all)}")
