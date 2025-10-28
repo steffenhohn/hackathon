@@ -269,6 +269,15 @@ docker compose exec redis redis-cli MONITOR
 # Exit Redis CLI with Ctrl+C
 ```
 
+OR
+
+Use redisinsight which was also installed with docker compose.
+
+Just open http://localhost:8011/
+and you will immidiatly see the database "redis:6379".
+
+Now you may switch to Pub/Sub and register for the channels, e.g. "surveillance:bundles".
+
 #### Step 5: Verify Data in PostgreSQL (fhir_ingestion)
 
 ```bash
