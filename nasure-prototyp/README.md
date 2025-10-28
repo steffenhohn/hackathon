@@ -303,6 +303,11 @@ The Postgres DB lab_dp_db is already pre-configured.
 
 Just choose Servers/Nasure Postgres/Databases/lab_dp_db from the left menu.
 
+Attention:
+
+Because of an unsolved error in the setup, you have to enter the password "lab_dp_pass" and
+click "Save Password" once.
+
 #### Step 6: Test Complete lab_dp Workflow
 
 The lab_dp consumer runs automatically when you start services with `docker compose up -d`.
