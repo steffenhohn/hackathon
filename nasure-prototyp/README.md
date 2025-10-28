@@ -283,6 +283,17 @@ SELECT COUNT(*) as total_bundles FROM bundles;
 EOF
 ```
 
+OR
+
+Use pgadmin which was also installed with docker compose.
+
+Just open http://localhost:5050/
+and use admin@example.com/admin for login.
+
+The Postgres DB lab_dp_db is already pre-configured.
+
+Just choose Servers/Nasure Postgres/Databases/lab_dp_db from the left menu.
+
 #### Step 6: Test Complete lab_dp Workflow
 
 The lab_dp consumer runs automatically when you start services with `docker compose up -d`.
