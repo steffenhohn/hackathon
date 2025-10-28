@@ -216,7 +216,7 @@ def fetch_patient_data(patient_id: str) -> Optional[Dict]:
     except Exception as e:
         st.error(f"❌ Unexpected error fetching patient data: {e}")
         return None
-
+    
 # --- Main Dashboard ---
 
 st.title("🏥 NASURE Case Management Dashboard")
@@ -423,7 +423,7 @@ if not df_filtered.empty:
         event = st.dataframe(
             df_display[available_columns],
             width='stretch',
-            height=400,
+            height=500,
             on_select="rerun",  # Enable row selection
             selection_mode="single-row",  # Allow only single row selection
             column_config={
@@ -442,10 +442,20 @@ if not df_filtered.empty:
             selected_row_index = event.selection.rows[0]  # Get first selected row index
             
             # Get the selected case data
-            if selected_row_index < len(df_filtered):
-                case_row = df_filtered.iloc[selected_row_index].to_dict()
+            if selected_row_index < len(df_display):
+                case_row = df_display.iloc[selected_row_index].to_dict()
                 selected_case_id = case_row.get('case_id', 'Unknown')
                 
+                # Clear patient data when a different case is selected
+                if 'current_selected_case' not in st.session_state or st.session_state.current_selected_case != selected_case_id:
+                    # Clear all patient data from session state
+                    keys_to_remove = [key for key in st.session_state.keys() if key.startswith('patient_data_')]
+                    for key in keys_to_remove:
+                        del st.session_state[key]
+                    
+                    # Store the current selected case ID
+                    st.session_state.current_selected_case = selected_case_id
+
                 # Case Detail Actions
                 st.markdown("---")
                 st.subheader(f"🔍 Case Details")
@@ -460,7 +470,7 @@ if not df_filtered.empty:
                         # Enhanced patient information
                         status = case_row.get('status')
                         if status == 'neu':
-                            st.markdown("**Case Statu:** :blue-badge[neu]")
+                            st.markdown("**Case Status:** :blue-badge[neu]")
                         elif status == 'in Bearbeitung':
                             st.markdown("**Case Status:** :orange-badge[in Bearbeitung]")
                         elif status == 'abgeschlossen':
