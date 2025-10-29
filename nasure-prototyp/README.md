@@ -269,6 +269,15 @@ docker compose exec redis redis-cli MONITOR
 # Exit Redis CLI with Ctrl+C
 ```
 
+OR
+
+Use redisinsight which was also installed with docker compose.
+
+Just open http://localhost:8011/
+and you will immidiatly see the database "redis:6379".
+
+Now you may switch to Pub/Sub and register for the channels, e.g. "surveillance:bundles".
+
 #### Step 5: Verify Data in PostgreSQL (fhir_ingestion)
 
 ```bash
@@ -282,6 +291,22 @@ docker compose exec postgres psql -U lab_dp_user -d lab_dp_db << EOF
 SELECT COUNT(*) as total_bundles FROM bundles;
 EOF
 ```
+
+OR
+
+Use pgadmin which was also installed with docker compose.
+
+Just open http://localhost:5050/
+and use admin@example.com/admin for login.
+
+The Postgres DB lab_dp_db is already pre-configured.
+
+Just choose Servers/Nasure Postgres/Databases/lab_dp_db from the left menu.
+
+Attention:
+
+Because of an unsolved error in the setup, you have to enter the password "lab_dp_pass" and
+click "Save Password" once.
 
 #### Step 6: Test Complete lab_dp Workflow
 

@@ -15,10 +15,38 @@ services:
       timeout: 5s
       retries: 5
 
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_SERVER_JSON_FILE: /pgadmin4/servers.json
+      PGADMIN_REPLACE_SERVERS_ON_STARTUP: "True"
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    volumes:
+      - ./utils/pgadmin/servers.json:/pgadmin4/servers.json:ro
+
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+
+  redisinsight:
+    image: redis/redisinsight:latest
+    container_name: redisinsight
+    ports:
+      - "8011:8001"   # hostPort:containerPort
+    depends_on:
+      - redis
+    environment:
+      - RI_APP_PORT=8001          # optional, default is 8001
+      - RI_APP_HOST=0.0.0.0
+    volumes:
+      - ./utils/redisinsight:/data
 
   minio:
     image: minio/minio:latest
