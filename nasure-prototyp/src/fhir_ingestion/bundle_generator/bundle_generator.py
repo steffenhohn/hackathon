@@ -5,6 +5,14 @@ from datetime import date, datetime
 from copy import deepcopy
 from pathlib import Path
 
+# Configure page
+st.set_page_config(
+    page_title="FHIR Bundle Generator",
+    page_icon="📃",
+    layout="centered",
+    initial_sidebar_state="expanded"
+)
+
 # Initialize session state
 if 'bundle_created' not in st.session_state:
     st.session_state.bundle_created = False
@@ -42,6 +50,10 @@ pathogens = {
     "Plasmodium": {
         "code": "70568-1",
         "display": "Plasmodium sp identified in Blood by Light microscopy"
+    },
+    "Gonorrhoeae": {
+        "code": "697-3",
+        "display": "Neisseria gonorrhoeae [Presence] in Urethra by Organism specific culture"
     }
 }
 
@@ -121,7 +133,7 @@ def create_bundle():
 
 # --- Streamlit UI ---
 
-st.title("FHIR Meldung Generator (CH-ELM)")
+st.title("FHIR Bundle Generator (CH-ELM)")
 
 # --- Sidebar ---
 

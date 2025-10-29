@@ -85,6 +85,22 @@ class CaseCreatedResponse(BaseModel):
     case: CaseResponse  # Details of the created or updated case
     created: bool       # Was case newly created or existing one updated
 
+class ProductLink(BaseModel):
+    """Model for a product link"""
+    product_id: str
+    is_original: bool
+    linked_at: Optional[datetime] = None 
+
+class ProductLinksResponse(BaseModel):
+    case_id: str
+    products: List[ProductLink]  
+    total_count: int
+
+class ProductLinkRequest(BaseModel):
+    case_id: str
+    product_id: str
+    is_original: bool = False
+
 # ---------- Endpoints ----------
 
 @app.get("/health")
@@ -283,3 +299,54 @@ def create_case(case_request: CreateCaseRequest):
     except Exception as e:
         logger.error(f"Error creating case: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+    
+@app.get("/api/v1/cases/{case_id}/products", response_model=ProductLinksResponse, summary="Get all products linked to a specific case")
+def get_case_products(case_id: str):
+    """Get all products linked to a specific case"""
+    try:
+        
+        with SqlAlchemyUnitOfWork() as uow:
+            # Get cases from repository with filters and pagination
+            products = uow.case_products.get_products_for_case(
+                case_id=case_id
+            )
+            # Convert to response format
+            product_links = [
+                {"product_id": product.product_id, "is_original": product.is_original, "linked_at": product.linked_at}
+                for product in products
+            ]
+
+            return ProductLinksResponse(
+                case_id=case_id,
+                products=product_links,
+                total_count=len(product_links)
+            )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching case products for case_id: {case_id}: {str(e)}")
+
+@app.post("/api/v1/cases/{case_id}/products", summary="Link a product to an existing case")
+async def link_product_to_case(product_link: ProductLinkRequest):
+    """Link a product to an existing case"""
+    try:
+        
+        with SqlAlchemyUnitOfWork() as uow:
+
+            case_product = uow.case_products.link_product_to_case(
+                case_id=product_link.case_id,
+                product_id=product_link.product_id,
+                is_original=product_link.is_original    
+            )
+
+            if case_product:
+                return {
+                    "message": "Product linked successfully to case",
+                    "case_id": product_link.case_id,
+                    "product_id": product_link.product_id,
+                    "is_original": product_link.is_original
+            }
+
+            else:
+                raise HTTPException(status_code=400, detail="Failed to link product to case")
+                
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error linking product: {str(e)}")

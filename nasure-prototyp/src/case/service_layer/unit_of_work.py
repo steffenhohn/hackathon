@@ -5,10 +5,12 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm.session import Session
 
 import config
-from case.adapters import repository
+from case.adapters import CaseRepository
+from case.adapters import CaseToProductRepository
 
 class AbstractUnitOfWork(abc.ABC):
-    cases: repository.AbstractRepository
+    cases: CaseRepository.AbstractRepository
+    case_products: CaseToProductRepository.AbstractRepository 
 
     def __enter__(self) -> AbstractUnitOfWork:
         return self
@@ -46,7 +48,9 @@ class SqlAlchemyUnitOfWork(AbstractUnitOfWork):
 
     def __enter__(self):
         self.session = self.session_factory()  # type: Session
-        self.cases = repository.SqlAlchemyRepository(self.session)
+        self.cases = CaseRepository.SqlAlchemyRepository(self.session)
+        self.case_products = CaseToProductRepository.SqlAlchemyRepository(self.session)
+
         return super().__enter__()
 
     def __exit__(self, *args):

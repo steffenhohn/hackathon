@@ -2,7 +2,7 @@ import logging
 from sqlalchemy import text
 import httpx
 from typing import Tuple
-from case.domain.domain import CaseRecord
+from case.domain.domain import CaseRecord, CaseToProductRecord
 from case.domain.commands import CreateCaseFromDataProduct
 from case.service_layer.unit_of_work import AbstractUnitOfWork
 from uuid import uuid4
@@ -102,11 +102,13 @@ def find_or_create_case(existing_cases: list, product: dict, command: CreateCase
         closest_match = min(matching_cases, key=lambda x: x["date_diff"])
         closest_case = closest_match["case"]
             
+        link_product_to_case(closest_case.case_id,command.product_id, False, uow)
         logger.info(f"Reusing existing case {closest_case.case_id} (date diff: {closest_match['date_diff']} days)")
         return closest_case.case_id, False
     else:
         # Create new case internally
         new_case_id = create_new_case_internal(product, command, uow)
+        link_product_to_case(new_case_id,command.product_id, True, uow)
         logger.info(f"Created new case {new_case_id}")
         return new_case_id, True
 
@@ -136,6 +138,42 @@ def create_new_case_internal(product: dict, command: CreateCaseFromDataProduct, 
     uow.cases.add(new_case)
     
     return case_id
+
+def link_product_to_case(case_id: str, product_id: str, is_original: bool, uow: AbstractUnitOfWork) -> bool:
+    """
+    Link a product to an existing case.
+
+    Args:
+        case_id: ID of the case
+        product_id: ID of the product to link
+        is_original: Whether this product is the original that created the case
+        uow: Unit of work
+
+    Returns:
+        success: True if link was created, False if it already existed
+    """
+    logger.info(f"Linking product {product_id} to case {case_id} (is_original={is_original})")
+
+    try:
+        
+        # Check if link already exists
+        existing_link = uow.case_products.get_case_for_product(product_id)
+        if existing_link:
+            logger.info(f"Link between case {case_id} and product {product_id} already exists")
+            return False
+        
+        uow.case_products.link_product_to_case(
+            case_id=case_id,
+            product_id=product_id,
+            is_original=is_original
+        )
+
+        logger.info(f"Successfully linked product {product_id} to case {case_id}")
+        return True
+
+    except Exception as e:
+        logger.error(f"Error linking product {product_id} to case {case_id}: {e}")
+        raise
 
 def publish_case_created_event(event, uow: AbstractUnitOfWork):
     """

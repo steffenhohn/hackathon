@@ -29,4 +29,16 @@ class CaseRecord:
 class CaseToProductRecord:
     """Domain model for linking Cases to Data Products."""
     case_id: str              # FK to case
-    product_id: str           # FK to product
+    product_id: str           # Link to product (no FK to avoid tight coupling)
+    is_original: bool         # whether this product is the original that created the case
+    linked_at: datetime       # when the link was created
+
+    def __hash__(self):
+        """Make object hashable based on case_id and product_id."""
+        return hash((self.case_id, self.product_id))
+    
+    def __eq__(self, other):
+        """Equality based on case_id and product_id."""
+        if not isinstance(other, CaseToProductRecord):
+            return False
+        return self.case_id == other.case_id and self.product_id == other.product_id

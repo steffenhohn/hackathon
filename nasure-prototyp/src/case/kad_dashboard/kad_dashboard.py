@@ -71,7 +71,29 @@ def fetch_all_cases(api_url: str, page_size: int = 100) -> Dict:
     except Exception as e:
         st.error(f"❌ Unexpected Error: {e}")
         return {"cases": [], "total_count": 0}
-    
+
+def fetch_case_products(api_url: str, case_id: str) -> Optional[List[Dict]]:
+    """Fetch all products linked to a specific case"""
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            response = client.get(f"{api_url}/api/v1/cases/{case_id}/products")
+            
+            if response.status_code == 200:
+                data = response.json()
+                return data.get("products", [])
+            elif response.status_code == 404:
+                st.warning(f"⚠️ No products found for case {case_id}")
+                return []
+            else:
+                response.raise_for_status()
+                
+    except httpx.RequestError as e:
+        st.error(f"❌ Error fetching case products: {e}")
+        return []
+    except Exception as e:
+        st.error(f"❌ Unexpected error: {e}")
+        return []
+
 
 def format_case_data(cases_data: Dict) -> pd.DataFrame:
     """Convert API response to pandas DataFrame"""
@@ -548,10 +570,43 @@ if not df_filtered.empty:
                             st.write(f"**Birthdate:** *****" )
                             st.write(f"**Canton of residence:** {case_row.get('canton', 'N/A')}")
 
-                    # Full case data as JSON (collapsible)
-                    #with st.expander("🔧 Raw Case Data"):
-                    #    st.json(case_row)
+                    # --- Linked Lab and Clinical Reports ---
+
+                    st.markdown("---")
+                    st.write("**📄 Linked Lab and Clinical Reports**")
                     
+                    # Auto-load products when case is selected
+                                                
+                    with st.spinner("🔄 Loading linked reports..."):                         
+
+                        case_products = fetch_case_products(api_base_url, selected_case_id)
+                        st.session_state[f'case_products_{selected_case_id}'] = case_products
+                    
+                    products = st.session_state.get(f'case_products_{selected_case_id}', [])
+                    
+                    if products:
+                        st.write(f"**Found {len(products)} linked reports:**")
+                        
+                        for i, product in enumerate(products):
+                            relationship_icon = "🎯" if product.get('is_original') else "🔗"
+                            relationship_text = "Original Report" if product.get('is_original') else "Additional Report"
+                            
+                            with st.expander(f"{relationship_icon} {relationship_text}: {product.get('product_id', 'Unknown')}", expanded=False):
+                                prod_col1, prod_col2 = st.columns(2)
+                                
+                                with prod_col1:
+                                    st.write(f"**Report ID:** {product.get('product_id', 'N/A')}")
+                                    st.write(f"**Relationship:** {relationship_text}")
+                                    st.write(f"**Linked At:** {product.get('linked_at', 'N/A')}")
+                                
+                                with prod_col2:
+                                    if st.button(f"🔍 View Report Details", key=f"view_product_{i}_{selected_case_id}"):
+                                        # Here you could fetch detailed product info from lab-dp-api
+                                        st.info("🚧 Product details view coming soon...")                                   
+
+                    else:
+                        st.info("ℹ️ No reports linked to this case")
+                                       
                     # Action buttons
                     st.markdown("---")
                     st.markdown("**Actions:**")

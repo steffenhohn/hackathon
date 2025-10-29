@@ -8,7 +8,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
-    event,
+    Boolean,
 )
 from sqlalchemy.orm import registry
 from case.domain import domain
@@ -39,6 +39,8 @@ case_to_products = Table(
     Column("id", Integer, primary_key=True, autoincrement=True),
     Column("case_id", String(255), nullable=False),
     Column("product_id", String(255), nullable=False),
+    Column("is_original", Boolean),
+    Column("linked_at", DateTime),
 )
 
 def start_mappers():
