@@ -5,7 +5,7 @@ from pathlib import Path
 from copy import deepcopy
 
 # Define the base example location
-bundle_path = Path("ch_elm_bundles") / "KB_beispiel_Gonorrhoe.json"
+bundle_path = Path("ch_kb_bundles") / "KB_beispiel_Gonorrhoe.json"
 
 # Try loading the base template
 try:
